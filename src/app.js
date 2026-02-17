@@ -28,6 +28,11 @@ app.get("/health", (req, res) => {
   });
 });
 
+import authRouter from "./controllers/auth/auth.router.js";
+
+app.use("/api/auth", authRouter);
+
+
 // Error Handler (must be last)
 app.use(errorMiddleware);
 
