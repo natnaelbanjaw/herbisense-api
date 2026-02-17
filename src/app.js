@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import swaggerUi from "swagger-ui-express";
+import openApiSpec from "./docs/openapi.js";
 
 import errorMiddleware from "./middlewares/error.middleware.js";
 
@@ -31,6 +33,10 @@ app.get("/health", (req, res) => {
 import authRouter from "./controllers/auth/auth.router.js";
 
 app.use("/api/auth", authRouter);
+app.get("/api-docs.json", (req, res) => {
+  res.status(200).json(openApiSpec);
+});
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 
 // Error Handler (must be last)
