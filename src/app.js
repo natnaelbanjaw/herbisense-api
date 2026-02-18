@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import errorMiddleware from "./middlewares/error.middleware.js";
+import openApiSpec from "./docs/openapi.js";
 
 const app = express();
 
@@ -28,12 +29,15 @@ app.get("/health", (req, res) => {
   });
 });
 
+// OpenAPI docs
+app.get("/api/docs.json", (req, res) => {
+  res.status(200).json(openApiSpec);
+});
+
 import authRouter from "./controllers/auth/auth.router.js";
+import authMiddleware from "./middlewares/auth.middleware.js";
 
 app.use("/api/auth", authRouter);
-
-
-import authMiddleware from "./middlewares/auth.middleware.js";
 
 app.get("/api/protected", authMiddleware, (req, res) => {
   res.json({
@@ -41,7 +45,6 @@ app.get("/api/protected", authMiddleware, (req, res) => {
     user: req.user
   });
 });
-
 
 // Error Handler (must be last)
 app.use(errorMiddleware);

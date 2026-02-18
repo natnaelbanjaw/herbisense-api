@@ -8,17 +8,27 @@ const runMigration = async () => {
   try {
     console.log("🚀 Running database migrations...");
 
-    // Read the migration file
-    const migrationFile = path.join(__dirname, "migrations", "001_create_users_table.sql");
-    const migrationSQL = await fs.readFile(migrationFile, "utf8");
+    // Get all migration files
+    const migrationDir = path.join(__dirname, "migrations");
+    const files = await fs.readdir(migrationDir);
+    const migrationFiles = files
+      .filter(file => file.endsWith('.sql'))
+      .sort()
+      .map(file => path.join(migrationDir, file));
 
-    // Execute the migration
+    // Execute each migration
     const client = await pool.connect();
-    await client.query(migrationSQL);
+    
+    for (const migrationFile of migrationFiles) {
+      console.log(`📝 Running migration: ${path.basename(migrationFile)}`);
+      const migrationSQL = await fs.readFile(migrationFile, "utf8");
+      await client.query(migrationSQL);
+    }
+    
     client.release();
 
-    console.log("✅ Migration completed successfully!");
-    console.log("✅ Users table created in PostgreSQL database");
+    console.log("✅ All migrations completed successfully!");
+    console.log(`✅ Created ${migrationFiles.length} tables in PostgreSQL database`);
     
   } catch (error) {
     console.error("❌ Migration failed:", error.message);
