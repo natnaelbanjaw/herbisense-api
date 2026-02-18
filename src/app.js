@@ -33,6 +33,16 @@ import authRouter from "./controllers/auth/auth.router.js";
 app.use("/api/auth", authRouter);
 
 
+import authMiddleware from "./middlewares/auth.middleware.js";
+
+app.get("/api/protected", authMiddleware, (req, res) => {
+  res.json({
+    message: "Access granted",
+    user: req.user
+  });
+});
+
+
 // Error Handler (must be last)
 app.use(errorMiddleware);
 

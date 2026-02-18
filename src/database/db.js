@@ -5,6 +5,10 @@ const { Pool } = pkg;
 
 const pool = new Pool({
   connectionString: env.DATABASE_URL,
+  ssl: {
+    require: true,
+    rejectUnauthorized: false // This allows self-signed certificates
+  }
 });
 
 export const connectDB = async () => {
