@@ -3,9 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
-import openApiSpec from "./docs/openapi.js";
-
 import errorMiddleware from "./middlewares/error.middleware.js";
+import openApiSpec from "./docs/openapi.js";
 
 const app = express();
 
@@ -30,14 +29,28 @@ app.get("/health", (req, res) => {
   });
 });
 
-import authRouter from "./controllers/auth/auth.router.js";
+// OpenAPI docs
+// Swagger UI
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
-app.use("/api/auth", authRouter);
-app.get("/api-docs.json", (req, res) => {
+// Optional: keep raw JSON if you want
+app.get("/api/docs.json", (req, res) => {
   res.status(200).json(openApiSpec);
 });
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
+import authRouter from "./controllers/auth/auth.router.js";
+import herbRouter from "./controllers/herbs/herb.router.js";
+
+app.use("/api/herbs", herbRouter);
+import authMiddleware from "./middlewares/auth.middleware.js";
+
+app.use("/api/auth", authRouter);
+app.get("/api/protected", authMiddleware, (req, res) => {
+  res.json({
+    message: "Access granted",
+    user: req.user
+  });
+});
 
 // Error Handler (must be last)
 app.use(errorMiddleware);
