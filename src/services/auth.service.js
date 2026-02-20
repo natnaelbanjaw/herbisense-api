@@ -16,10 +16,11 @@ export const registerService = async (fullName, email, password) => {
 
   const user = await createUser(fullName, email, hashedPassword);
 
-  const token = generateToken({
-    id: user.id,
-    role: user.role
-  });
+const token = generateToken({
+  id: user.id,
+  role: user.role,
+  isSuperAdmin: user.is_super_admin
+});
 
   return { user, token };
 };

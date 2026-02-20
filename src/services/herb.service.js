@@ -54,3 +54,19 @@ export const getPublishedHerbsService = async (page = 1, limit = 10) => {
 
   return await getPublishedHerbsQuery(limit, offset);
 };
+
+import { searchHerbsQuery } from "../database/queries/herb.query.js";
+
+export const searchHerbsService = async (queryParams) => {
+  const page = parseInt(queryParams.page) || 1;
+  const limit = parseInt(queryParams.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  return await searchHerbsQuery({
+    search: queryParams.search,
+    conditionId: queryParams.conditionId,
+    limit,
+    offset,
+    sort: queryParams.sort || "created_at"
+  });
+};

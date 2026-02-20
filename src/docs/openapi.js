@@ -116,6 +116,24 @@ const openApiSpec = {
           data: { $ref: "#/components/schemas/Herb" }
         }
       },
+      HerbStatusUpdateRequest: {
+        type: "object",
+        required: ["status"],
+        properties: {
+          status: {
+            type: "string",
+            enum: ["DRAFT", "PUBLISHED", "ARCHIVED"],
+            example: "PUBLISHED"
+          }
+        }
+      },
+      MessageResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          message: { type: "string", example: "Herb deleted successfully" }
+        }
+      },
       ProtectedResponse: {
         type: "object",
         properties: {
@@ -283,6 +301,215 @@ const openApiSpec = {
         responses: {
           201: {
             description: "Herb created successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/HerbCreateResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          403: {
+            description: "Forbidden - Admin only",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs/search": {
+      get: {
+        tags: ["Herbs"],
+        summary: "Search published herbs",
+        parameters: [
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string", example: "ginger" }
+          },
+          {
+            name: "conditionId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" }
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, example: 1 }
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, example: 10 }
+          },
+          {
+            name: "sort",
+            in: "query",
+            required: false,
+            schema: { type: "string", example: "created_at" }
+          }
+        ],
+        responses: {
+          200: {
+            description: "Herbs fetched successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/HerbListResponse" }
+              }
+            }
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs/{id}": {
+      put: {
+        tags: ["Herbs"],
+        summary: "Update a herb",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/HerbCreateRequest" }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Herb updated successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/HerbCreateResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          403: {
+            description: "Forbidden - Admin only",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          404: {
+            description: "Herb not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      delete: {
+        tags: ["Herbs"],
+        summary: "Delete a herb",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ],
+        responses: {
+          200: {
+            description: "Herb deleted successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MessageResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          403: {
+            description: "Forbidden - Admin only",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          404: {
+            description: "Herb not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs/{id}/status": {
+      patch: {
+        tags: ["Herbs"],
+        summary: "Update herb status",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/HerbStatusUpdateRequest" }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Herb status updated successfully",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/HerbCreateResponse" }

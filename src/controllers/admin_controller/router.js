@@ -5,5 +5,11 @@ router.get("/", (req, res)=>{
     res.send("this is admin router")
 })
 
+router.post(
+  "/create-admin",
+  authMiddleware,
+  requireSuperAdmin,
+  createAdmin
+);
 
 module.exports = router;

@@ -82,3 +82,46 @@ export const getPublishedHerbsQuery = async (limit, offset) => {
 
   return result.rows;
 };
+
+export const searchHerbsQuery = async ({
+  search,
+  conditionId,
+  limit,
+  offset,
+  sort = "created_at"
+}) => {
+
+  let query = `
+    SELECT DISTINCT h.*
+    FROM herbs h
+    LEFT JOIN recommendation_rules r
+      ON h.id = r.herb_id
+    WHERE h.status = 'PUBLISHED'
+  `;
+
+  const values = [];
+  let index = 1;
+
+  if (search) {
+    query += ` AND h.name ILIKE $${index}`;
+    values.push(`%${search}%`);
+    index++;
+  }
+
+  if (conditionId) {
+    query += ` AND r.condition_id = $${index}`;
+    values.push(conditionId);
+    index++;
+  }
+
+  query += `
+    ORDER BY h.${sort} DESC
+    LIMIT $${index}
+    OFFSET $${index + 1}
+  `;
+
+  values.push(limit, offset);
+
+  const result = await pool.query(query, values);
+  return result.rows;
+};

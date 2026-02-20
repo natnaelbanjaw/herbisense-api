@@ -31,7 +31,7 @@ app.get("/health", (req, res) => {
 
 // OpenAPI docs
 // Swagger UI
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 // Optional: keep raw JSON if you want
 app.get("/api/docs.json", (req, res) => {
