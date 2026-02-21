@@ -1,6 +1,6 @@
 import express from "express";
 import authMiddleware from "../../middlewares/auth.middleware.js";
-import { requireAdmin } from "../../middlewares/role.middleware.js";
+import { requireAdmin, requireSuperAdmin } from "../../middlewares/role.middleware.js";
 
 import {
   createHerb,
@@ -38,7 +38,7 @@ router.put(
 router.delete(
   "/:id",
   authMiddleware,
-  requireAdmin,
+    requireSuperAdmin,
   deleteHerb
 );
 

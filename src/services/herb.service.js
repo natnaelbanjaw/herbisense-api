@@ -1,5 +1,6 @@
 import {
   createHerbQuery,
+  findHerbByNameOrScientificNameQuery,
   getHerbByIdQuery,
   updateHerbQuery,
   deleteHerbQuery,
@@ -8,6 +9,15 @@ import {
 } from "../database/queries/herb.query.js";
 
 export const createHerbService = async (data, userId) => {
+  const existingHerb = await findHerbByNameOrScientificNameQuery(
+    data.name,
+    data.scientificName
+  );
+
+  if (existingHerb) {
+    throw { status: 400, message: "Herb already exists" };
+  }
+
   return await createHerbQuery(
     data.name,
     data.scientificName,

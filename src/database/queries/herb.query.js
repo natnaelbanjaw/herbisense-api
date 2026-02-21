@@ -19,6 +19,22 @@ export const createHerbQuery = async (
   return result.rows[0];
 };
 
+export const findHerbByNameOrScientificNameQuery = async (name, scientificName) => {
+  const hasScientificName = Boolean(scientificName && scientificName.trim());
+  const query = hasScientificName
+    ? `SELECT * FROM herbs
+       WHERE LOWER(name) = LOWER($1)
+          OR LOWER(scientific_name) = LOWER($2)
+       LIMIT 1`
+    : `SELECT * FROM herbs
+       WHERE LOWER(name) = LOWER($1)
+       LIMIT 1`;
+
+  const values = hasScientificName ? [name, scientificName] : [name];
+  const result = await pool.query(query, values);
+  return result.rows[0];
+};
+
 export const getHerbByIdQuery = async (id) => {
   const result = await pool.query(
     `SELECT * FROM herbs WHERE id = $1`,
