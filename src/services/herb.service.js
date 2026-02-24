@@ -5,7 +5,8 @@ import {
   updateHerbQuery,
   deleteHerbQuery,
   updateHerbStatusQuery,
-  getPublishedHerbsQuery
+  getPublishedHerbsQuery, countPublishedHerbsQuery,
+  getPendingHerbsQuery, countPendingHerbsQuery
 } from "../database/queries/herb.query.js";
 
 export const createHerbService = async (data, userId) => {
@@ -59,10 +60,40 @@ export const updateHerbStatusService = async (id, status) => {
   return await updateHerbStatusQuery(id, status);
 };
 
+// herbService.js
+
 export const getPublishedHerbsService = async (page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
+  const herbs = await getPublishedHerbsQuery(limit, offset);
+  const total = await countPublishedHerbsQuery();
+  const totalPages = Math.ceil(total / limit);
 
-  return await getPublishedHerbsQuery(limit, offset);
+  return {
+    herbs,
+    pagination: {
+      total,
+      totalPages,
+      currentPage: page,
+      limit
+    }
+  };
+};
+
+export const getPendingHerbsService = async (page = 1, limit = 10) => {
+  const offset = (page - 1) * limit;
+  const herbs = await getPendingHerbsQuery(limit, offset);
+  const total = await countPendingHerbsQuery();
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    herbs,
+    pagination: {
+      total,
+      totalPages,
+      currentPage: page,
+      limit
+    }
+  };
 };
 
 import { searchHerbsQuery } from "../database/queries/herb.query.js";

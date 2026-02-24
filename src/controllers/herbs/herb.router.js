@@ -4,7 +4,8 @@ import { requireAdmin, requireSuperAdmin } from "../../middlewares/role.middlewa
 
 import {
   createHerb,
-  getHerbs,
+  getPublishedHerbs,
+  getUnPublishedHerbs,
   searchHerbs,
   updateHerb,
   deleteHerb,
@@ -14,7 +15,12 @@ import {
 const router = express.Router();
 
 // Public
-router.get("/", getHerbs);
+router.get("/published", getPublishedHerbs);
+
+router.get("/unpublished", getUnPublishedHerbs,
+  authMiddleware,
+  requireAdmin,
+);
 
 // Admin
 router.post(
@@ -30,7 +36,7 @@ router.get("/search", searchHerbs);
 router.put(
   "/:id",
   authMiddleware,
-  requireAdmin,
+  requireSuperAdmin,
   updateHerb
 );
 
@@ -38,7 +44,7 @@ router.put(
 router.delete(
   "/:id",
   authMiddleware,
-    requireSuperAdmin,
+  requireSuperAdmin,
   deleteHerb
 );
 

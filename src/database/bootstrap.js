@@ -34,7 +34,7 @@ export const ensureSuperAdminExists = async () => {
         "System Admin",
         adminEmail,
         hashedPassword,
-        "ADMIN",
+        "SUPER_ADMIN",
         true
       ]
     );

@@ -3,8 +3,9 @@ import {
   updateHerbService,
   deleteHerbService,
   updateHerbStatusService,
+  searchHerbsService,
   getPublishedHerbsService,
-  searchHerbsService
+  getPendingHerbsService
 } from "../../services/herb.service.js";
 
 export const createHerb = async (req, res, next) => {
@@ -21,18 +22,37 @@ export const createHerb = async (req, res, next) => {
   }
 };
 
-export const getHerbs = async (req, res, next) => {
+// herbController.js
+
+export const getPublishedHerbs = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    const herbs = await getPublishedHerbsService(page, limit);
+    const result = await getPublishedHerbsService(page, limit);
 
     res.status(200).json({
       success: true,
-      data: herbs
+      pagination: result.pagination,
+      data: result.herbs
     });
+  } catch (error) {
+    next(error);
+  }
+};
 
+export const getUnPublishedHerbs = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const result = await getPendingHerbsService(page, limit);
+
+    res.status(200).json({
+      success: true,
+      pagination: result.pagination,
+      data: result.herbs
+    });
   } catch (error) {
     next(error);
   }

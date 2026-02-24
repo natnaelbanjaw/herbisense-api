@@ -16,6 +16,7 @@ const openApiSpec = {
     { name: "Docs", description: "OpenAPI documentation endpoints" },
     { name: "Auth", description: "Authentication endpoints" },
     { name: "Herbs", description: "Herb resource endpoints" },
+    { name: "Favorites", description: "User favorite herb endpoints" },
     { name: "Protected", description: "Protected route examples" }
   ],
   components: {
@@ -109,11 +110,71 @@ const openApiSpec = {
           }
         }
       },
+      Pagination: {
+        type: "object",
+        properties: {
+          total: { type: "integer", example: 42 },
+          totalPages: { type: "integer", example: 5 },
+          currentPage: { type: "integer", example: 1 },
+          limit: { type: "integer", example: 10 }
+        }
+      },
+      HerbPaginatedResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          pagination: { $ref: "#/components/schemas/Pagination" },
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Herb" }
+          }
+        }
+      },
       HerbCreateResponse: {
         type: "object",
         properties: {
           success: { type: "boolean", example: true },
           data: { $ref: "#/components/schemas/Herb" }
+        }
+      },
+      Favorite: {
+        type: "object",
+        properties: {
+          id: { type: "integer", example: 7 },
+          user_id: { type: "integer", example: 1 },
+          herb_id: {
+            type: "string",
+            format: "uuid",
+            example: "4c26c842-0646-4dc0-a4ff-5f80f2b3c1d5"
+          }
+        }
+      },
+      FavoriteCreateRequest: {
+        type: "object",
+        required: ["herbId"],
+        properties: {
+          herbId: {
+            type: "string",
+            format: "uuid",
+            example: "4c26c842-0646-4dc0-a4ff-5f80f2b3c1d5"
+          }
+        }
+      },
+      FavoriteCreateResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: { $ref: "#/components/schemas/Favorite" }
+        }
+      },
+      FavoriteHerbListResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Herb" }
+          }
         }
       },
       HerbStatusUpdateRequest: {
@@ -122,7 +183,7 @@ const openApiSpec = {
         properties: {
           status: {
             type: "string",
-            enum: ["DRAFT", "PUBLISHED", "ARCHIVED"],
+            enum: ["PENDING", "PUBLISHED", "ARCHIVED"],
             example: "PUBLISHED"
           }
         }
@@ -181,6 +242,17 @@ const openApiSpec = {
         responses: {
           200: {
             description: "OpenAPI JSON document"
+          }
+        }
+      }
+    },
+    "/api-docs": {
+      get: {
+        tags: ["Docs"],
+        summary: "Swagger UI",
+        responses: {
+          200: {
+            description: "Swagger UI page"
           }
         }
       }
@@ -249,7 +321,7 @@ const openApiSpec = {
         }
       }
     },
-    "/api/herbs": {
+    "/api/herbs/published": {
       get: {
         tags: ["Herbs"],
         summary: "Get published herbs",
@@ -272,7 +344,7 @@ const openApiSpec = {
             description: "Published herbs fetched successfully",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/HerbListResponse" }
+                schema: { $ref: "#/components/schemas/HerbPaginatedResponse" }
               }
             }
           },
@@ -285,7 +357,64 @@ const openApiSpec = {
             }
           }
         }
-      },
+      }
+    },
+    "/api/herbs/unpublished": {
+      get: {
+        tags: ["Herbs"],
+        summary: "Get unpublished herbs",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, example: 1 }
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, example: 10 }
+          }
+        ],
+        responses: {
+          200: {
+            description: "Unpublished herbs fetched successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/HerbPaginatedResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          403: {
+            description: "Forbidden - Admin only",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs": {
       post: {
         tags: ["Herbs"],
         summary: "Create a herb",
@@ -526,6 +655,119 @@ const openApiSpec = {
           },
           403: {
             description: "Forbidden - Admin only",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/favorites": {
+      post: {
+        tags: ["Favorites"],
+        summary: "Add herb to favorites",
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FavoriteCreateRequest" }
+            }
+          }
+        },
+        responses: {
+          201: {
+            description: "Favorite added successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FavoriteCreateResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      get: {
+        tags: ["Favorites"],
+        summary: "Get user favorite herbs",
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Favorites fetched successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FavoriteHerbListResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/favorites/{herbId}": {
+      delete: {
+        tags: ["Favorites"],
+        summary: "Remove herb from favorites",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "herbId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ],
+        responses: {
+          200: {
+            description: "Favorite removed successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MessageResponse" }
+              }
+            }
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          500: {
+            description: "Server error",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" }

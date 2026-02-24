@@ -86,17 +86,46 @@ export const updateHerbStatusQuery = async (id, status) => {
   return result.rows[0];
 };
 
+// herbQueries.js
 
 export const getPublishedHerbsQuery = async (limit, offset) => {
   const result = await pool.query(
-    `SELECT * FROM herbs
+    `SELECT *
+     FROM herbs
      WHERE status = 'PUBLISHED'
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
-
   return result.rows;
+};
+
+export const countPublishedHerbsQuery = async () => {
+  const result = await pool.query(
+    `SELECT COUNT(*) FROM herbs
+     WHERE status = 'PUBLISHED'`
+  );
+  return parseInt(result.rows[0].count);
+};
+
+export const getPendingHerbsQuery = async (limit, offset) => {
+  const result = await pool.query(
+    `SELECT *
+     FROM herbs
+     WHERE status = 'PENDING'
+     ORDER BY created_at DESC
+     LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+  return result.rows;
+};
+
+export const countPendingHerbsQuery = async () => {
+  const result = await pool.query(
+    `SELECT COUNT(*) FROM herbs
+     WHERE status = 'PENDING'`
+  );
+  return parseInt(result.rows[0].count);
 };
 
 export const searchHerbsQuery = async ({

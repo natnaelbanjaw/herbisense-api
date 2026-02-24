@@ -45,6 +45,11 @@ app.use("/api/herbs", herbRouter);
 import authMiddleware from "./middlewares/auth.middleware.js";
 
 app.use("/api/auth", authRouter);
+
+import favoriteRouter from "./controllers/favorites/favorite.router.js";
+
+app.use("/api/favorites", favoriteRouter);
+
 app.get("/api/protected", authMiddleware, (req, res) => {
   res.json({
     message: "Access granted",
