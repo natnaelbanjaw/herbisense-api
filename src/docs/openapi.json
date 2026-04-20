@@ -1,0 +1,2820 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Herbisense API",
+    "version": "1.0.0",
+    "description": "Swagger docs for all currently mounted API routes."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service health"
+    },
+    {
+      "name": "Docs",
+      "description": "OpenAPI and Swagger UI"
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication"
+    },
+    {
+      "name": "Admin",
+      "description": "Admin management"
+    },
+    {
+      "name": "Herbs",
+      "description": "Herb management and discovery"
+    },
+    {
+      "name": "Favorites",
+      "description": "User favorites"
+    },
+    {
+      "name": "Saved Herbs",
+      "description": "User-saved herbs"
+    },
+    {
+      "name": "Conditions",
+      "description": "Skin conditions"
+    },
+    {
+      "name": "Condition Translations",
+      "description": "Multilingual condition translations"
+    },
+    {
+      "name": "Recommendations",
+      "description": "Recommendation rules and lookup"
+    },
+    {
+      "name": "Ratings",
+      "description": "Recommendation ratings"
+    },
+    {
+      "name": "Feedback",
+      "description": "User feedback messages"
+    },
+    {
+      "name": "Translations",
+      "description": "Multilingual herb translations"
+    },
+    {
+      "name": "Uploads",
+      "description": "Herb image uploads"
+    },
+    {
+      "name": "Protected",
+      "description": "Protected sample route"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Use Authorization: Bearer <JWT_TOKEN>"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Unauthorized"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "uptime": {
+            "type": "number",
+            "example": 31.42
+          },
+          "timestamp": {
+            "type": "integer",
+            "example": 1739900000000
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "example": "Nati User"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "nati@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "strongpassword123"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "admin@herbisense.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "admin123"
+          }
+        }
+      },
+      "AdminCreateRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "example": "Admin User"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "admin@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "strongpassword123"
+          }
+        }
+      },
+      "HerbCreateRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Ginger"
+          },
+          "scientificName": {
+            "type": "string",
+            "example": "Zingiber officinale"
+          },
+          "description": {
+            "type": "string",
+            "example": "Traditional medicinal herb"
+          },
+          "preparation": {
+            "type": "string",
+            "example": "Infusion"
+          },
+          "safetyWarning": {
+            "type": "string",
+            "example": "Use cautiously with blood thinners"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "WHO monographs on selected medicinal plants"
+          },
+          "conditionIds": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": [
+              1,
+              3
+            ],
+            "description": "Optional condition links. Can contain one or many condition IDs, or be null."
+          }
+        }
+      },
+      "HerbUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Ginger"
+          },
+          "scientificName": {
+            "type": "string",
+            "example": "Zingiber officinale"
+          },
+          "description": {
+            "type": "string",
+            "example": "Updated description"
+          },
+          "preparation": {
+            "type": "string",
+            "example": "Powder or infusion"
+          },
+          "safetyWarning": {
+            "type": "string",
+            "example": "Consult a physician if pregnant"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "Updated journal or clinical reference"
+          },
+          "conditionIds": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": [
+              2,
+              4
+            ],
+            "description": "Optional condition links. Can contain one or many condition IDs, or be null."
+          }
+        }
+      },
+      "HerbStatusUpdateRequest": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PUBLISHED",
+              "ARCHIVED",
+              "pending",
+              "published",
+              "archived"
+            ],
+            "example": "published"
+          }
+        }
+      },
+      "HerbItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Ginger"
+          },
+          "scientific_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Zingiber officinale"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicinal herb"
+          },
+          "preparation": {
+            "type": "string",
+            "nullable": true,
+            "example": "Infusion"
+          },
+          "safety_warning": {
+            "type": "string",
+            "nullable": true,
+            "example": "Use cautiously with blood thinners"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "WHO monographs on selected medicinal plants"
+          },
+          "created_by": {
+            "type": "integer",
+            "nullable": true,
+            "example": 2
+          },
+          "condition_id": {
+            "type": "integer",
+            "nullable": true,
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "example": "published"
+          },
+          "average_rating": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.5
+          },
+          "rating_count": {
+            "type": "integer",
+            "nullable": true,
+            "example": 10
+          },
+          "condition_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Acne"
+          },
+          "condition_description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Inflammatory skin condition"
+          },
+          "condition": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConditionItem"
+              }
+            ],
+            "nullable": true
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConditionItem"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-30T09:07:39.079Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-30T09:07:39.079Z"
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "example": 25
+          },
+          "totalPages": {
+            "type": "integer",
+            "example": 3
+          },
+          "currentPage": {
+            "type": "integer",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "example": 10
+          }
+        }
+      },
+      "HerbsPaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HerbItem"
+            }
+          }
+        }
+      },
+      "HerbsSearchResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HerbItem"
+            }
+          }
+        }
+      },
+      "HerbSingleResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/HerbItem"
+          }
+        }
+      },
+      "FavoriteCreateRequest": {
+        "type": "object",
+        "required": [
+          "herbId"
+        ],
+        "properties": {
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          }
+        }
+      },
+      "FavoriteTranslation": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "translated_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "ኒም"
+          },
+          "translated_uses": {
+            "type": "string",
+            "nullable": true,
+            "example": "ፍራፍሬ የሚናጠቅ"
+          },
+          "translated_preparation": {
+            "type": "string",
+            "nullable": true,
+            "example": "ማጥለቂያ ወይም የተጠጣ"
+          },
+          "translated_safety": {
+            "type": "string",
+            "nullable": true,
+            "example": "በሙቀት እንዳይጠጣ"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicine reference"
+          }
+        }
+      },
+      "FavoriteItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Ginger"
+          },
+          "scientific_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Zingiber officinale"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicinal herb"
+          },
+          "preparation": {
+            "type": "string",
+            "nullable": true,
+            "example": "Infusion"
+          },
+          "safety_warning": {
+            "type": "string",
+            "nullable": true,
+            "example": "Use cautiously with blood thinners"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "example": "published"
+          },
+          "favorited_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-11T12:00:00.000Z"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://res.cloudinary.com/demo/image/upload/herb.jpg"
+          },
+          "translation": {
+            "$ref": "#/components/schemas/FavoriteTranslation"
+          }
+        }
+      },
+      "FavoritesListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "results": {
+            "type": "integer",
+            "example": 1
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FavoriteItem"
+            }
+          }
+        }
+      },
+      "SavedHerbCreateRequest": {
+        "type": "object",
+        "required": [
+          "herbId"
+        ],
+        "properties": {
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          }
+        }
+      },
+      "SavedHerbTranslation": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "translated_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "ኒም"
+          },
+          "translated_uses": {
+            "type": "string",
+            "nullable": true,
+            "example": "ፍራፍሬ የሚናጠቅ"
+          },
+          "translated_preparation": {
+            "type": "string",
+            "nullable": true,
+            "example": "ማጥለቂያ ወይም የተጠጣ"
+          },
+          "translated_safety": {
+            "type": "string",
+            "nullable": true,
+            "example": "በሙቀት እንዳይጠጣ"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicine reference"
+          }
+        }
+      },
+      "SavedHerbItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Ginger"
+          },
+          "scientific_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Zingiber officinale"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicinal herb"
+          },
+          "preparation": {
+            "type": "string",
+            "nullable": true,
+            "example": "Infusion"
+          },
+          "safety_warning": {
+            "type": "string",
+            "nullable": true,
+            "example": "Use cautiously with blood thinners"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "example": "published"
+          },
+          "saved_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-11T12:00:00.000Z"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://res.cloudinary.com/demo/image/upload/herb.jpg"
+          },
+          "translation": {
+            "$ref": "#/components/schemas/SavedHerbTranslation"
+          }
+        }
+      },
+      "SavedHerbsListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "results": {
+            "type": "integer",
+            "example": 1
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedHerbItem"
+            }
+          }
+        }
+      },
+      "ConditionUpsertRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "example": "Acne"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Inflammatory skin condition"
+          },
+          "herbIds": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": [
+              3,
+              7
+            ],
+            "description": "Optional linked herbs. Can contain one or many herb IDs, or be null."
+          }
+        }
+      },
+      "ConditionHerbItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 3
+          },
+          "name": {
+            "type": "string",
+            "example": "Neem"
+          },
+          "translated_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Translated herb name when language parameter is provided",
+            "example": "ኒም"
+          },
+          "scientific_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Azadirachta indica"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicinal herb"
+          },
+          "translated_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Translated herb description when language parameter is provided",
+            "example": "ባህላዊ ሕክምና ምግብ"
+          },
+          "preparation": {
+            "type": "string",
+            "nullable": true,
+            "example": "Paste or infusion"
+          },
+          "safety_warning": {
+            "type": "string",
+            "nullable": true,
+            "example": "Avoid overuse during pregnancy without medical advice"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "Traditional medicine reference"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "example": "published"
+          },
+          "average_rating": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.5
+          },
+          "rating_count": {
+            "type": "integer",
+            "nullable": true,
+            "example": 12
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://res.cloudinary.com/demo/image/upload/herb.jpg"
+          }
+        }
+      },
+      "ConditionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 5
+          },
+          "name": {
+            "type": "string",
+            "description": "Condition name (translated if language parameter is provided)",
+            "example": "hb"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Condition description (translated if language parameter is provided)",
+            "example": "Inflamamatory skin condition"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-30T09:07:39.079Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-30T09:07:39.079Z"
+          },
+          "herb_id": {
+            "type": "integer",
+            "nullable": true,
+            "example": null
+          },
+          "linked_herb_name": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "herbs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConditionHerbItem"
+            }
+          }
+        }
+      },
+      "ConditionsListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "results": {
+            "type": "integer",
+            "example": 1
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConditionItem"
+            }
+          }
+        },
+        "example": {
+          "success": true,
+          "results": 1,
+          "data": [
+            {
+              "id": 5,
+              "name": "hb",
+              "description": "Inflamamatory skin condition",
+              "created_at": "2026-03-30T09:07:39.079Z",
+              "updated_at": "2026-03-30T09:07:39.079Z",
+              "herb_id": null,
+              "linked_herb_name": null,
+              "herbs": []
+            }
+          ]
+        }
+      },
+      "ConditionLinkRequest": {
+        "type": "object",
+        "required": [
+          "herbId",
+          "conditionId"
+        ],
+        "properties": {
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "conditionId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2
+          }
+        }
+      },
+      "ConditionTranslationUpsertRequest": {
+        "type": "object",
+        "required": [
+          "conditionId",
+          "language",
+          "translated_name",
+          "translated_description"
+        ],
+        "properties": {
+          "conditionId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "EN",
+              "AM",
+              "OM"
+            ],
+            "example": "AM"
+          },
+          "translated_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Acne"
+          },
+          "translated_description": {
+            "type": "string",
+            "minLength": 1,
+            "example": "A skin condition with inflamed pores."
+          }
+        }
+      },
+      "RecommendationCreateRequest": {
+        "type": "object",
+        "required": [
+          "conditionId",
+          "herbId"
+        ],
+        "properties": {
+          "conditionId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2
+          },
+          "priority": {
+            "type": "number",
+            "nullable": true,
+            "example": 10
+          }
+        }
+      },
+      "RatingCreateRequest": {
+        "type": "object",
+        "required": [
+          "herbId",
+          "ratingValue"
+        ],
+        "properties": {
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 3
+          },
+          "ratingValue": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true,
+            "example": "Very effective herb"
+          }
+        }
+      },
+      "FeedbackCreateRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "message"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120,
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000,
+            "example": "Great experience using the app and remedies."
+          }
+        }
+      },
+      "TranslationUpsertRequest": {
+        "type": "object",
+        "required": [
+          "herbId",
+          "language",
+          "translated_name",
+          "translated_uses",
+          "translated_preparation"
+        ],
+        "properties": {
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "EN",
+              "AM",
+              "OM"
+            ],
+            "example": "AM"
+          },
+          "translated_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Aloe Vera"
+          },
+          "translated_uses": {
+            "type": "string",
+            "minLength": 1,
+            "example": "For rashes and dry skin"
+          },
+          "translated_preparation": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Apply gel topically"
+          },
+          "translated_safety": {
+            "type": "string",
+            "nullable": true,
+            "example": "Use with caution if allergic"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ethiopian traditional medicine reference"
+          }
+        }
+      },
+      "UploadHerbImageRequest": {
+        "type": "object",
+        "required": [
+          "herbId",
+          "image"
+        ],
+        "properties": {
+          "herbId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "image": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      },
+      "HerbImageItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 15
+          },
+          "herb_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "image_url": {
+            "type": "string",
+            "example": "https://res.cloudinary.com/demo/image/upload/herb.jpg"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-30T09:07:39.079Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-30T09:07:39.079Z"
+          }
+        }
+      },
+      "HerbsWithImagesResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "results": {
+            "type": "integer",
+            "example": 2
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/HerbItem"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "images": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/HerbImageItem"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-docs": {
+      "get": {
+        "tags": [
+          "Docs"
+        ],
+        "summary": "Swagger UI",
+        "responses": {
+          "200": {
+            "description": "Swagger UI rendered"
+          }
+        }
+      }
+    },
+    "/api/docs.json": {
+      "get": {
+        "tags": [
+          "Docs"
+        ],
+        "summary": "OpenAPI JSON",
+        "responses": {
+          "200": {
+            "description": "OpenAPI JSON returned"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registered"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged in"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/admin/create-admin": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Create admin",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Admin created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/herbs/published": {
+      "get": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Get published herbs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published herbs fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HerbsPaginatedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs/unpublished": {
+      "get": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Get unpublished herbs",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unpublished herbs fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HerbsPaginatedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs/create": {
+      "post": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Create herb",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HerbCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Herb created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/herbs/search": {
+      "get": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Search herbs",
+          "description": "Searches by herb name, scientific name, translated herb fields in all supported languages, and linked condition names/translations.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "ginger"
+            }
+          },
+          {
+            "name": "conditionId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 10
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "updated_at",
+                "name"
+              ],
+              "example": "created_at"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HerbsSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/herbs/recommended/me": {
+      "get": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Get personalized recommendations",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendations fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "page": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "example": 10
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/HerbItem"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/herbs/{id}": {
+      "get": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Get herb by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Herb fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HerbSingleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/herbs/update/{id}": {
+      "put": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Update herb",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HerbUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Herb updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/herbs/delete/{id}": {
+      "delete": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Delete herb",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Herb deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/herbs/{id}/status": {
+      "patch": {
+        "tags": [
+          "Herbs"
+        ],
+        "summary": "Update herb status",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HerbStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/favorites": {
+      "post": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Add favorite",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavoriteCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Favorite added"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Get my favorites",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb fields in the response.",
+            "schema": {
+              "type": "string",
+              "enum": ["EN", "AM", "OM"],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Favorites fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritesListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/favorites/{herbId}": {
+      "delete": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Remove favorite",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "herbId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Favorite removed"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/saved-herbs": {
+      "post": {
+        "tags": [
+          "Saved Herbs"
+        ],
+        "summary": "Save herb",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedHerbCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Herb saved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Saved Herbs"
+        ],
+        "summary": "Get my saved herbs",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb fields in the response.",
+            "schema": {
+              "type": "string",
+              "enum": ["EN", "AM", "OM"],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved herbs fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedHerbsListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/saved-herbs/{herbId}": {
+      "delete": {
+        "tags": [
+          "Saved Herbs"
+        ],
+        "summary": "Remove saved herb",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "herbId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved herb removed"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/conditions": {
+      "get": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Get all conditions",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb names and descriptions in the response.",
+            "schema": {
+              "type": "string",
+              "enum": ["EN", "AM", "OM"],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conditions fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Create condition",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionUpsertRequest"
+              },
+              "example": {
+                "name": "hb",
+                "description": "Inflamamatory skin condition",
+                "herbIds": [
+                  3,
+                  7
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Condition created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+      "/api/conditions/search": {
+        "get": {
+          "tags": [
+            "Conditions"
+          ],
+          "summary": "Search conditions",
+          "description": "Searches base and translated condition names/descriptions across all supported languages.",
+          "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "acne"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "acne"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conditions fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        }
+      }
+    },
+    "/api/conditions/{id}": {
+      "get": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Get condition by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb names and descriptions in the response.",
+            "schema": {
+              "type": "string",
+              "enum": ["EN", "AM", "OM"],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Condition fetched"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Update condition",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionUpsertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Condition updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Delete condition",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Condition deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/conditions/link": {
+      "post": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Link herb to condition",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Herb linked to condition"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/condition-translations": {
+      "post": {
+        "tags": [
+          "Condition Translations"
+        ],
+        "summary": "Create or update condition translation",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionTranslationUpsertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Condition translation saved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/condition-translations/{id}": {
+      "get": {
+        "tags": [
+          "Condition Translations"
+        ],
+        "summary": "Get all translations for a condition",
+        "description": "Path id here is conditionId.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Condition translations fetched"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Condition Translations"
+        ],
+        "summary": "Delete condition translation",
+        "description": "Path id here is translation id. Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Condition translation deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/condition-translations/{conditionId}/{language}": {
+      "get": {
+        "tags": [
+          "Condition Translations"
+        ],
+        "summary": "Get one condition translation by condition and language",
+        "parameters": [
+          {
+            "name": "conditionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Condition translation fetched"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/recommendations": {
+      "post": {
+        "tags": [
+          "Recommendations"
+        ],
+        "summary": "Create recommendation rule",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rule created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/recommendations/{id}": {
+      "get": {
+        "tags": [
+          "Recommendations"
+        ],
+        "summary": "Get recommendations by condition",
+        "description": "Path id here is conditionId.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendations fetched"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Recommendations"
+        ],
+        "summary": "Delete recommendation rule",
+        "description": "Path id here is recommendation rule id. Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/ratings": {
+      "post": {
+        "tags": [
+          "Ratings"
+        ],
+        "summary": "Rate herb",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rating submitted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/ratings/{herbId}": {
+      "get": {
+        "tags": [
+          "Ratings"
+        ],
+        "summary": "Get ratings for a herb",
+        "parameters": [
+          {
+            "name": "herbId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ratings fetched"
+          }
+        }
+      }
+    },
+    "/api/ratings/average/{herbId}": {
+      "get": {
+        "tags": [
+          "Ratings"
+        ],
+        "summary": "Get average rating for a herb",
+        "parameters": [
+          {
+            "name": "herbId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Average rating fetched"
+          }
+        }
+      }
+    },
+    "/api/feedback": {
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Submit feedback",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Feedback submitted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Get all feedback (admin)",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feedback fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/feedback/mine": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Get my feedback",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feedback fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/feedback/{id}": {
+      "delete": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Delete feedback (admin)",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feedback deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/translations": {
+      "post": {
+        "tags": [
+          "Translations"
+        ],
+        "summary": "Create or update translation",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationUpsertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Translation saved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/translations/{id}": {
+      "get": {
+        "tags": [
+          "Translations"
+        ],
+        "summary": "Get all translations for a herb",
+        "description": "Path id here is herbId.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Translations fetched"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Translations"
+        ],
+        "summary": "Delete translation",
+        "description": "Path id here is translation id. Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Translation deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/translations/{herbId}/{language}": {
+      "get": {
+        "tags": [
+          "Translations"
+        ],
+        "summary": "Get one translation by herb and language",
+        "parameters": [
+          {
+            "name": "herbId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Translation fetched"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Upload herb image",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadHerbImageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/uploads/herbs": {
+      "get": {
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Get all herbs with condition and image records",
+        "responses": {
+          "200": {
+            "description": "Herbs fetched with condition and images",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HerbsWithImagesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/{id}": {
+      "get": {
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Get herb images",
+        "description": "Path id here is herbId.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Images fetched"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Delete image",
+        "description": "Path id here is image id. Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 9
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/protected": {
+      "get": {
+        "tags": [
+          "Protected"
+        ],
+        "summary": "Protected route example",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Access granted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  }
+}
