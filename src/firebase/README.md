@@ -18,6 +18,12 @@ Recommended setup: place `serviceAccountKey.json` in the project root.
 
 You can also use `.env` values instead if you prefer.
 
+For Render, the easiest option is usually one env var containing the whole service-account JSON:
+
+```env
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...","client_id":"..."}
+```
+
 Optional `.env` values:
 
 ```env

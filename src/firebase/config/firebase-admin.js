@@ -2,10 +2,31 @@ import admin from "firebase-admin";
 import fs from "fs";
 import env from "./env.js";
 
+const normalizeServiceAccount = (serviceAccount) => {
+  if (
+    serviceAccount &&
+    typeof serviceAccount.private_key === "string"
+  ) {
+    serviceAccount.private_key = serviceAccount.private_key
+      .replace(/^"(.*)"$/s, "$1")
+      .replace(/\\n/g, "\n");
+  }
+
+  return serviceAccount;
+};
+
 const resolveCredential = () => {
+  if (env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    const serviceAccount = normalizeServiceAccount(
+      JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON)
+    );
+
+    return admin.credential.cert(serviceAccount);
+  }
+
   if (fs.existsSync(env.FIREBASE_SERVICE_ACCOUNT_PATH)) {
-    const serviceAccount = JSON.parse(
-      fs.readFileSync(env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8")
+    const serviceAccount = normalizeServiceAccount(
+      JSON.parse(fs.readFileSync(env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8"))
     );
 
     return admin.credential.cert(serviceAccount);
