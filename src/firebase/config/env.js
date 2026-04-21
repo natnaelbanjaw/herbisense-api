@@ -12,8 +12,9 @@ const serviceAccountPath = path.resolve(
   "../../../serviceAccountKey.json"
 );
 const hasServiceAccountFile = fs.existsSync(serviceAccountPath);
+const hasServiceAccountJson = Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
 
-if (!hasServiceAccountFile) {
+if (!hasServiceAccountFile && !hasServiceAccountJson) {
   const requiredEnvVars = [
     "FIREBASE_PROJECT_ID",
     "FIREBASE_CLIENT_EMAIL",
