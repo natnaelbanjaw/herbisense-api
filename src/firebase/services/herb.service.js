@@ -4,6 +4,7 @@ import { mapDoc, normalizeArray, normalizeString } from "../utils/documents.js";
 
 const herbsCollection = db.collection("herbs");
 const conditionsCollection = db.collection("conditions");
+const recommendationRulesCollection = db.collection("recommendation_rules");
 
 const buildHerbPayload = (data = {}, userId = null) => {
   const name = normalizeString(data.name);
@@ -149,6 +150,129 @@ export const getHerbsService = async ({ status, search, conditionId }) => {
   }
 
   return herbs;
+};
+
+export const getPublishedHerbsService = async (page = 1, limit = 10) => {
+  const allHerbs = await getHerbsService({ status: "published" });
+  const offset = (page - 1) * limit;
+  const herbs = allHerbs.slice(offset, offset + limit);
+  const total = allHerbs.length;
+
+  return {
+    herbs,
+    pagination: {
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      currentPage: page,
+      limit
+    }
+  };
+};
+
+export const getPendingHerbsService = async (page = 1, limit = 10) => {
+  const allHerbs = await getHerbsService({ status: "pending" });
+  const offset = (page - 1) * limit;
+  const herbs = allHerbs.slice(offset, offset + limit);
+  const total = allHerbs.length;
+
+  return {
+    herbs,
+    pagination: {
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      currentPage: page,
+      limit
+    }
+  };
+};
+
+export const searchHerbsService = async (queryParams = {}) => {
+  return getHerbsService({
+    status: queryParams.status,
+    search: queryParams.search,
+    conditionId: queryParams.conditionId
+  });
+};
+
+export const updateHerbStatusService = async (id, status) => {
+  const herbRef = herbsCollection.doc(String(id));
+  const snapshot = await herbRef.get();
+
+  if (!snapshot.exists) {
+    throw createHttpError(404, "Herb not found");
+  }
+
+  const normalizedStatus = normalizeString(status).toLowerCase();
+
+  if (!normalizedStatus) {
+    throw createHttpError(400, "status is required");
+  }
+
+  await herbRef.set(
+    {
+      status: normalizedStatus,
+      updatedAt: timestamp.now()
+    },
+    { merge: true }
+  );
+
+  return getHerbByIdService(id);
+};
+
+export const getRecommendedHerbsService = async (
+  userId,
+  page = 1,
+  limit = 10
+) => {
+  const favoriteSnapshot = await db
+    .collection("users")
+    .doc(String(userId))
+    .collection("favorites")
+    .get();
+
+  const favoriteHerbIds = favoriteSnapshot.docs.map((doc) => doc.id);
+  const favoriteHerbs = await Promise.all(
+    favoriteHerbIds.map(async (herbId) => {
+      const herbSnapshot = await herbsCollection.doc(herbId).get();
+      return herbSnapshot.exists ? mapDoc(herbSnapshot) : null;
+    })
+  );
+
+  const favoriteConditionIds = [
+    ...new Set(
+      favoriteHerbs
+        .filter(Boolean)
+        .flatMap((herb) => herb.conditionIds || [])
+    )
+  ];
+
+  const recommendedByRules = await Promise.all(
+    favoriteConditionIds.map(async (conditionId) => {
+      const snapshot = await recommendationRulesCollection
+        .where("conditionId", "==", conditionId)
+        .get();
+
+      return snapshot.docs.map(mapDoc);
+    })
+  );
+
+  const herbIds = [
+    ...new Set(
+      recommendedByRules.flat().map((rule) => String(rule.herbId)).filter(Boolean)
+    )
+  ];
+
+  const herbs = await Promise.all(
+    herbIds.map(async (herbId) => {
+      const herb = await getHerbByIdService(herbId).catch(() => null);
+      return herb && herb.status === "published" ? herb : null;
+    })
+  );
+
+  const filtered = herbs.filter(Boolean);
+  const offset = (page - 1) * limit;
+
+  return filtered.slice(offset, offset + limit);
 };
 
 export const updateHerbService = async (id, data) => {

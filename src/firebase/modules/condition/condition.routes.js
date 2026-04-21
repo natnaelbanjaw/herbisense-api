@@ -5,15 +5,20 @@ import {
   deleteCondition,
   getConditionById,
   getConditions,
+  linkHerbToCondition,
+  searchConditions,
   updateCondition
 } from "./condition.controller.js";
 
 const router = express.Router();
 
+router.get("/search", searchConditions);
 router.get("/", getConditions);
-router.get("/:id", getConditionById);
 router.post("/", firebaseAuthMiddleware, createCondition);
+router.post("/link", firebaseAuthMiddleware, linkHerbToCondition);
+router.put("/:id", firebaseAuthMiddleware, updateCondition);
 router.patch("/:id", firebaseAuthMiddleware, updateCondition);
 router.delete("/:id", firebaseAuthMiddleware, deleteCondition);
+router.get("/:id", getConditionById);
 
 export default router;

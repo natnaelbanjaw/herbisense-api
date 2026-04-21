@@ -3,6 +3,8 @@ import {
   deleteConditionService,
   getConditionByIdService,
   getConditionsService,
+  linkHerbToConditionService,
+  searchConditionsService,
   updateConditionService
 } from "../../services/condition.service.js";
 
@@ -26,6 +28,19 @@ export const getConditions = async (req, res, next) => {
     res.status(200).json({
       success: true,
       results: data.length,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const searchConditions = async (req, res, next) => {
+  try {
+    const data = await searchConditionsService(req.query || {});
+
+    res.status(200).json({
+      success: true,
       data
     });
   } catch (error) {
@@ -62,6 +77,22 @@ export const updateCondition = async (req, res, next) => {
 export const deleteCondition = async (req, res, next) => {
   try {
     const data = await deleteConditionService(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const linkHerbToCondition = async (req, res, next) => {
+  try {
+    const data = await linkHerbToConditionService(
+      req.body?.herbId,
+      req.body?.conditionId
+    );
 
     res.status(200).json({
       success: true,

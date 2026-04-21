@@ -93,6 +93,24 @@ export const getConditionsService = async () => {
   return snapshot.docs.map(mapDoc);
 };
 
+export const searchConditionsService = async ({ search }) => {
+  const allConditions = await getConditionsService();
+  const normalizedSearch = normalizeString(search).toLowerCase();
+
+  if (!normalizedSearch) {
+    return allConditions;
+  }
+
+  return allConditions.filter((condition) => {
+    const haystack = [condition.name, condition.description]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
+};
+
 export const getConditionByIdService = async (id) => {
   const snapshot = await conditionsCollection.doc(String(id)).get();
 
@@ -163,4 +181,44 @@ export const deleteConditionService = async (id) => {
   });
 
   return { id: conditionRef.id };
+};
+
+export const linkHerbToConditionService = async (herbId, conditionId) => {
+  const herbRef = herbsCollection.doc(String(herbId));
+  const conditionRef = conditionsCollection.doc(String(conditionId));
+  const herbSnapshot = await herbRef.get();
+  const conditionSnapshot = await conditionRef.get();
+
+  if (!herbSnapshot.exists) {
+    throw createHttpError(404, "Herb not found");
+  }
+
+  if (!conditionSnapshot.exists) {
+    throw createHttpError(404, "Condition not found");
+  }
+
+  await db.runTransaction(async (transaction) => {
+    transaction.set(
+      herbRef,
+      {
+        conditionIds: fieldValue.arrayUnion(String(conditionId)),
+        updatedAt: timestamp.now()
+      },
+      { merge: true }
+    );
+
+    transaction.set(
+      conditionRef,
+      {
+        herbIds: fieldValue.arrayUnion(String(herbId)),
+        updatedAt: timestamp.now()
+      },
+      { merge: true }
+    );
+  });
+
+  return {
+    herb_id: String(herbId),
+    condition_id: String(conditionId)
+  };
 };
