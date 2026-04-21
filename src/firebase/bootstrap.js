@@ -241,6 +241,187 @@ const writeSchemaManifest = async () => {
   await batch.commit();
 };
 
+const seedStarterData = async (adminResult) => {
+  const adminUid = adminResult.uid;
+  const batch = db.batch();
+  const now = timestamp.now();
+
+  const sampleConditionId = "sample_condition_skin_inflammation";
+  const sampleHerbId = "sample_herb_aloe_vera";
+  const sampleRuleId = "sample_rule_aloe_vera_skin";
+  const sampleHerbTranslationId = "sample_translation_herb_aloe_en";
+  const sampleConditionTranslationId = "sample_translation_condition_skin_en";
+  const sampleImageId = "sample_image_aloe_vera";
+  const sampleFeedbackId = "sample_feedback_admin";
+  const sampleSavedHerbId = `saved_${adminUid}_${sampleHerbId}`;
+  const sampleRatingId = `${adminUid}_${sampleHerbId}`;
+  const sampleHerbConditionId = `${sampleHerbId}_${sampleConditionId}`;
+
+  batch.set(
+    db.collection("conditions").doc(sampleConditionId),
+    {
+      name: "Skin Inflammation",
+      description: "Inflammatory skin condition used as Firebase bootstrap sample data.",
+      herbIds: [sampleHerbId],
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("herbs").doc(sampleHerbId),
+    {
+      name: "Aloe Vera",
+      scientificName: "Aloe barbadensis miller",
+      description: "Traditional medicinal herb commonly used for soothing skin irritation.",
+      preparation: "Apply fresh gel to the affected area after cleaning.",
+      safetyWarning: "Patch test before use and avoid application to deep open wounds.",
+      source: "Firebase bootstrap sample",
+      status: "published",
+      createdBy: adminUid,
+      conditionIds: [sampleConditionId],
+      averageRating: 5,
+      ratingCount: 1,
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("herb_conditions").doc(sampleHerbConditionId),
+    {
+      herbId: sampleHerbId,
+      conditionId: sampleConditionId,
+      createdAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("recommendation_rules").doc(sampleRuleId),
+    {
+      herbId: sampleHerbId,
+      conditionId: sampleConditionId,
+      priority: 10,
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("ratings").doc(sampleRatingId),
+    {
+      userId: adminUid,
+      herbId: sampleHerbId,
+      ruleId: sampleRuleId,
+      rating: 5,
+      ratingValue: 5,
+      comment: "Bootstrap sample rating from the system admin.",
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("language_translations").doc(sampleHerbTranslationId),
+    {
+      herbId: sampleHerbId,
+      language: "EN",
+      translatedName: "Aloe Vera",
+      translatedUses: "Used for soothing skin irritation and minor burns.",
+      translatedPreparation: "Use fresh gel directly on clean skin.",
+      translatedSafety: "Do not ingest without proper guidance.",
+      source: "Firebase bootstrap sample",
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("condition_translations").doc(sampleConditionTranslationId),
+    {
+      conditionId: sampleConditionId,
+      language: "EN",
+      translatedName: "Skin Inflammation",
+      translatedDescription: "A condition involving irritation, redness, or swelling of the skin.",
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("herb_images").doc(sampleImageId),
+    {
+      herbId: sampleHerbId,
+      imageUrl: "https://res.cloudinary.com/demo/image/upload/herb.jpg",
+      createdAt: now,
+      updatedAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("feedback").doc(sampleFeedbackId),
+    {
+      userId: adminUid,
+      name: env.FIREBASE_BOOTSTRAP_ADMIN_NAME,
+      email: env.FIREBASE_BOOTSTRAP_ADMIN_EMAIL,
+      message: "Firebase bootstrap completed and sample feedback was created.",
+      createdAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("saved_herbs").doc(sampleSavedHerbId),
+    {
+      userId: adminUid,
+      herbId: sampleHerbId,
+      createdAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("users").doc(adminUid).collection("favorites").doc(sampleHerbId),
+    {
+      herbId: sampleHerbId,
+      createdAt: now,
+      bootstrapSeed: true
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    metadataCollection.doc("seed-data"),
+    {
+      initialized: true,
+      seededConditionId: sampleConditionId,
+      seededHerbId: sampleHerbId,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
+};
+
 const runBootstrap = async () => {
   console.log("Starting Firebase bootstrap...");
   console.log(
@@ -250,6 +431,7 @@ const runBootstrap = async () => {
   const adminResult = await ensureAdminUser();
   await writeBootstrapMetadata(adminResult);
   await writeSchemaManifest();
+  await seedStarterData(adminResult);
 
   console.log(
     adminResult.created
@@ -261,6 +443,7 @@ const runBootstrap = async () => {
   console.log(
     `Registered Firebase schema metadata for ${collectionDefinitions.length} collections/subcollections.`
   );
+  console.log("Seeded starter data for herbs, conditions, translations, images, ratings, feedback, and saved items.");
   console.log("Firebase bootstrap completed successfully.");
 };
 
