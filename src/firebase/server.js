@@ -1,4 +1,4 @@
-import app from "../app-firebase.js";
+import app from "./app.js";
 import env from "./config/env.js";
 import "./config/firebase-admin.js";
 
