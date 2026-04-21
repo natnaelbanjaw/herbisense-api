@@ -7,7 +7,10 @@ import {
 
 export const register = async (req, res, next) => {
   try {
-    const result = await registerService(req.body || {});
+    const result = await registerService({
+      ...(req.body || {}),
+      apiKey: env.FIREBASE_WEB_API_KEY
+    });
 
     res.status(201).json({
       success: true,

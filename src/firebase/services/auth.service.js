@@ -14,7 +14,46 @@ const buildUserProfile = (uid, data = {}) => ({
   updatedAt: data.updatedAt || null
 });
 
-export const registerService = async ({ fullName, email, password }) => {
+const buildLegacyUserPayload = (uid, data = {}) => ({
+  id: uid,
+  full_name: data.fullName || "",
+  email: data.email || "",
+  role: data.role || "user"
+});
+
+const signInWithPassword = async ({ email, password, apiKey }) => {
+  if (!apiKey) {
+    throw createHttpError(
+      500,
+      "Missing FIREBASE_WEB_API_KEY for email/password login"
+    );
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: true
+      })
+    }
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw createHttpError(401, payload?.error?.message || "Invalid credentials");
+  }
+
+  return payload;
+};
+
+export const registerService = async ({ fullName, email, password, apiKey }) => {
   if (!fullName || !email || !password) {
     throw createHttpError(400, "fullName, email and password are required");
   }
@@ -46,12 +85,11 @@ export const registerService = async ({ fullName, email, password }) => {
 
   await auth.setCustomUserClaims(userRecord.uid, { role: "user" });
   await usersCollection.doc(userRecord.uid).set(userData);
-
-  const customToken = await auth.createCustomToken(userRecord.uid, { role: "user" });
+  const signInPayload = await signInWithPassword({ email, password, apiKey });
 
   return {
-    user: buildUserProfile(userRecord.uid, userData),
-    customToken
+    user: buildLegacyUserPayload(userRecord.uid, userData),
+    token: signInPayload.idToken
   };
 };
 
@@ -59,34 +97,7 @@ export const loginService = async ({ email, password, apiKey }) => {
   if (!email || !password) {
     throw createHttpError(400, "email and password are required");
   }
-
-  if (!apiKey) {
-    throw createHttpError(
-      500,
-      "Missing FIREBASE_WEB_API_KEY for email/password login"
-    );
-  }
-
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        returnSecureToken: true
-      })
-    }
-  );
-
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw createHttpError(401, payload?.error?.message || "Invalid credentials");
-  }
+  const payload = await signInWithPassword({ email, password, apiKey });
 
   const userSnapshot = await usersCollection.doc(payload.localId).get();
   const userProfile = userSnapshot.exists
@@ -94,12 +105,8 @@ export const loginService = async ({ email, password, apiKey }) => {
     : null;
 
   return {
-    user: userProfile,
-    token: {
-      idToken: payload.idToken,
-      refreshToken: payload.refreshToken,
-      expiresIn: payload.expiresIn
-    }
+    user: buildLegacyUserPayload(payload.localId, userProfile || {}),
+    token: payload.idToken
   };
 };
 
@@ -119,12 +126,12 @@ export const getCurrentUserService = async (uid) => {
 
     await usersCollection.doc(uid).set(fallbackData, { merge: true });
 
-    return buildUserProfile(uid, {
+    return buildLegacyUserPayload(uid, {
       ...fallbackData,
       createdAt: null,
       updatedAt: null
     });
   }
 
-  return buildUserProfile(uid, snapshot.data());
+  return buildLegacyUserPayload(uid, snapshot.data());
 };

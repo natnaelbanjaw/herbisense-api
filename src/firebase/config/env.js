@@ -16,6 +16,14 @@ const env = {
   PORT: process.env.FIREBASE_PORT || process.env.PORT || "5002",
   NODE_ENV: process.env.NODE_ENV || "development",
   CORS_ORIGINS: process.env.CORS_ORIGINS || "",
+  FIREBASE_BOOTSTRAP_ADMIN_EMAIL:
+    process.env.FIREBASE_BOOTSTRAP_ADMIN_EMAIL || "admin@herbisense.com",
+  FIREBASE_BOOTSTRAP_ADMIN_PASSWORD:
+    process.env.FIREBASE_BOOTSTRAP_ADMIN_PASSWORD || "admin123",
+  FIREBASE_BOOTSTRAP_ADMIN_NAME:
+    process.env.FIREBASE_BOOTSTRAP_ADMIN_NAME || "System Admin",
+  FIREBASE_BOOTSTRAP_ADMIN_ROLE:
+    process.env.FIREBASE_BOOTSTRAP_ADMIN_ROLE || "super_admin",
   FIREBASE_SERVICE_ACCOUNT_PATH: serviceAccountPath,
   FIREBASE_SERVICE_ACCOUNT_PATH_EXISTS: fs.existsSync(serviceAccountPath),
   FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "",

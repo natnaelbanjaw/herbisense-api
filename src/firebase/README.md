@@ -30,6 +30,10 @@ Optional `.env` values:
 FIREBASE_PORT=5002
 FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 FIREBASE_WEB_API_KEY=your-web-api-key
+FIREBASE_BOOTSTRAP_ADMIN_EMAIL=admin@herbisense.com
+FIREBASE_BOOTSTRAP_ADMIN_PASSWORD=admin123
+FIREBASE_BOOTSTRAP_ADMIN_NAME=System Admin
+FIREBASE_BOOTSTRAP_ADMIN_ROLE=super_admin
 ```
 
 If `serviceAccountKey.json` exists in the repo root, the Firebase backend will load credentials from that file automatically.
@@ -43,6 +47,15 @@ Start the Firebase backend directly:
 ```bash
 node src/firebase/server.js
 ```
+
+Bootstrap the Firebase admin user and Firestore profile:
+
+```bash
+npm run firebase:bootstrap
+```
+
+This script is idempotent. It creates or updates the Firebase Auth admin user,
+assigns custom claims, and writes the matching Firestore `users/{uid}` profile.
 
 If you run this server instead of `src/server.js`, the backend is effectively disconnected from PostgreSQL because the Firebase server path never imports the Postgres connection files.
 
@@ -73,3 +86,4 @@ If you run this server instead of `src/server.js`, the backend is effectively di
 - Firestore document IDs are strings, so this Firebase backend accepts string IDs.
 - Search is currently implemented as a simple in-memory filter after querying Firestore.
 - Rich SQL-style joins from the Postgres backend are modeled through Firestore document references and arrays instead of relational joins.
+- You still need to enable Firebase Authentication Email/Password sign-in once in the Firebase Console.
