@@ -117,15 +117,28 @@ export const getHerbByIdService = async (id) => {
 };
 
 export const getHerbsService = async ({ status, search, conditionId }) => {
-  let query = herbsCollection.orderBy("createdAt", "desc");
   const normalizedStatus = normalizeString(status).toLowerCase();
+  const snapshot = await herbsCollection.get();
+  let herbs = snapshot.docs.map(mapDoc);
+
+  herbs.sort((left, right) => {
+    const leftTime =
+      typeof left?.createdAt?.toMillis === "function"
+        ? left.createdAt.toMillis()
+        : 0;
+    const rightTime =
+      typeof right?.createdAt?.toMillis === "function"
+        ? right.createdAt.toMillis()
+        : 0;
+
+    return rightTime - leftTime;
+  });
 
   if (normalizedStatus) {
-    query = query.where("status", "==", normalizedStatus);
+    herbs = herbs.filter(
+      (herb) => normalizeString(herb.status).toLowerCase() === normalizedStatus
+    );
   }
-
-  const snapshot = await query.get();
-  let herbs = snapshot.docs.map(mapDoc);
 
   if (conditionId) {
     herbs = herbs.filter((herb) => (herb.conditionIds || []).includes(String(conditionId)));
