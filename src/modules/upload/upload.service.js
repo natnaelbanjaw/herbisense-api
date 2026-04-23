@@ -1,99 +1,153 @@
-import pool from "../../database/db.js";
+import { db, timestamp } from "../../config/firebase-admin.js";
+import { createHttpError } from "../../utils/http-error.js";
+import { parseNumericId, resolveDocByNumericId, toEntityId } from "../../utils/firestore-id.js";
+
+const herbsCollection = db.collection("herbs");
+
+const toDate = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  return value;
+};
+
+const formatImageDoc = (doc, herbId) => {
+  const data = doc.data() || {};
+
+  return {
+    id: toEntityId(doc, doc.id),
+    herb_id: herbId,
+    image_url: data.imageUrl || data.image_url || null,
+    created_at: toDate(data.createdAt) || toDate(data.created_at),
+    updated_at: toDate(data.updatedAt) || toDate(data.updated_at),
+  };
+};
+
+const getHerbDoc = async (herbId) => {
+  const herbDoc = await resolveDocByNumericId("herbs", herbId);
+  if (!herbDoc?.exists) {
+    throw createHttpError(400, "Invalid herbId");
+  }
+
+  return herbDoc;
+};
+
+const getCondition = async (conditionId) => {
+  const parsedConditionId = parseNumericId(conditionId);
+  if (!parsedConditionId) {
+    return null;
+  }
+
+  const conditionDoc = await resolveDocByNumericId("conditions", parsedConditionId);
+  if (!conditionDoc?.exists) {
+    return null;
+  }
+
+  const data = conditionDoc.data() || {};
+  return {
+    id: parsedConditionId,
+    name: data.name || null,
+    description: data.description || null,
+    created_at: toDate(data.createdAt) || toDate(data.created_at),
+    updated_at: toDate(data.updatedAt) || toDate(data.updated_at),
+  };
+};
+
+const getConditions = async (conditionIds = []) => {
+  const ids = [...new Set(
+    (Array.isArray(conditionIds) ? conditionIds : [])
+      .map((value) => parseNumericId(value))
+      .filter(Boolean)
+  )];
+
+  const conditions = await Promise.all(ids.map((id) => getCondition(id)));
+  return conditions.filter(Boolean).sort((left, right) => String(left.name || "").localeCompare(String(right.name || "")));
+};
+
+const formatHerbDoc = async (doc) => {
+  const data = doc.data() || {};
+  const herbId = toEntityId(doc, doc.id);
+  const conditions = await getConditions(data.conditionIds);
+  const primaryCondition = conditions[0] || null;
+  const imagesSnapshot = await doc.ref.collection("images").get();
+  const images = imagesSnapshot.docs
+    .map((imageDoc) => formatImageDoc(imageDoc, herbId))
+    .sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime() || 0;
+      const rightTime = new Date(right.created_at).getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+  return {
+    id: herbId,
+    name: data.name || null,
+    scientific_name: data.scientificName || null,
+    description: data.description || null,
+    preparation: data.preparation || null,
+    safety_warning: data.safetyWarning || null,
+    source: data.source || null,
+    status: data.status || null,
+    average_rating: data.averageRating || 0,
+    rating_count: data.ratingCount || 0,
+    created_at: toDate(data.createdAt) || toDate(data.created_at),
+    updated_at: toDate(data.updatedAt) || toDate(data.updated_at),
+    condition: primaryCondition,
+    conditions,
+    images,
+  };
+};
 
 export const saveHerbImageService = async (herbId, imageUrl) => {
-  try {
-    const result = await pool.query(
-      `INSERT INTO herb_images (herb_id, image_url)
-       VALUES ($1, $2)
-       RETURNING *`,
-      [herbId, imageUrl]
-    );
-    return result.rows[0];
-  } catch (error) {
-    if (error.code === "23503") {
-      throw { status: 400, message: "Invalid herbId" };
-    }
-    throw error;
-  }
+  const herbDoc = await getHerbDoc(herbId);
+  const now = timestamp.now();
+  const imageRef = herbDoc.ref.collection("images").doc(String(Date.now()));
+
+  await imageRef.set({
+    imageUrl,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const savedDoc = await imageRef.get();
+  return formatImageDoc(savedDoc, herbId);
 };
+
 export const getHerbsService = async () => {
-  const result = await pool.query(
-    `SELECT
-      h.*,
-      CASE
-        WHEN c.id IS NULL THEN NULL
-        ELSE json_build_object(
-          'id', c.id,
-          'name', c.name,
-          'description', c.description,
-          'created_at', c.created_at,
-          'updated_at', c.updated_at
-        )
-      END AS condition,
-      COALESCE(
-        (
-          SELECT json_agg(condition_item ORDER BY condition_item->>'name')
-          FROM (
-            SELECT DISTINCT jsonb_build_object(
-              'id', c2.id,
-              'name', c2.name,
-              'description', c2.description,
-              'created_at', c2.created_at,
-              'updated_at', c2.updated_at
-            ) AS condition_item
-            FROM conditions c2
-            WHERE c2.id IN (
-              SELECT hc.condition_id
-              FROM herb_conditions hc
-              WHERE hc.herb_id = h.id
+  const snapshot = await herbsCollection.get();
+  const herbs = await Promise.all(snapshot.docs.map((doc) => formatHerbDoc(doc)));
 
-              UNION
+  herbs.sort((left, right) => {
+    const leftTime = new Date(left.created_at).getTime() || 0;
+    const rightTime = new Date(right.created_at).getTime() || 0;
+    return rightTime - leftTime;
+  });
 
-              SELECT h.condition_id
-              WHERE h.condition_id IS NOT NULL
-            )
-          ) aggregated_conditions
-        ),
-        '[]'::json
-      ) AS conditions,
-      COALESCE(
-        json_agg(
-          DISTINCT jsonb_build_object(
-            'id', hi.id,
-            'herb_id', hi.herb_id,
-            'image_url', hi.image_url,
-            'created_at', hi.created_at,
-            'updated_at', hi.updated_at
-          )
-        ) FILTER (WHERE hi.id IS NOT NULL),
-        '[]'::json
-      ) AS images
-     FROM herbs h
-     LEFT JOIN conditions c ON h.condition_id = c.id
-     LEFT JOIN herb_images hi ON hi.herb_id = h.id
-     GROUP BY h.id, c.id
-     ORDER BY h.created_at DESC`
-  );
-  return result.rows;
+  return herbs;
 };
 
 export const getHerbImagesService = async (herbId) => {
-  const result = await pool.query(
-    `SELECT *
-     FROM herb_images
-     WHERE herb_id = $1
-     ORDER BY created_at DESC`,
-    [herbId]
-  );
-  return result.rows;
+  const herbDoc = await getHerbDoc(herbId);
+  const snapshot = await herbDoc.ref.collection("images").get();
+
+  const images = snapshot.docs.map((doc) => formatImageDoc(doc, herbId));
+  images.sort((left, right) => {
+    const leftTime = new Date(left.created_at).getTime() || 0;
+    const rightTime = new Date(right.created_at).getTime() || 0;
+    return rightTime - leftTime;
+  });
+
+  return images;
 };
 
 export const deleteImageService = async (id) => {
-  const result = await pool.query(
-    `DELETE FROM herb_images
-     WHERE id = $1
-     RETURNING *`,
-    [id]
-  );
-  return result.rows[0] || null;
+  const snapshot = await db.collectionGroup("images").get();
+  const imageDoc = snapshot.docs.find((doc) => toEntityId(doc, doc.id) === Number(id) || doc.id === String(id));
+
+  if (!imageDoc) {
+    return null;
+  }
+
+  const herbId = parseNumericId(imageDoc.ref.parent.parent?.id);
+  const formatted = formatImageDoc(imageDoc, herbId);
+  await imageDoc.ref.delete();
+  return formatted;
 };

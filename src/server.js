@@ -2,6 +2,11 @@ import app from "./app.js";
 import env from "./config/env.js";
 import { connectDB } from "./database/db.js";
 import { ensureSuperAdminExists } from "./database/bootstrap.js";
+// If your server.js has this line, comment it out:
+// import "./database/db.js";
+
+// Instead, just import firebase-admin:
+import "./config/firebase-admin.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection:", reason);

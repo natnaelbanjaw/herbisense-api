@@ -1,5 +1,4 @@
-import bcrypt from "bcryptjs";
-import { createUser, findUserByEmail } from "../../database/queries/user.query.js";
+import { auth, db, timestamp } from "../../config/firebase-admin.js";
 import { normalizeRole, ROLES } from "../../constants/roles.js";
 
 export const createAdmin = async (req, res, next) => {
@@ -20,33 +19,58 @@ export const createAdmin = async (req, res, next) => {
       });
     }
 
-    const existingUser = await findUserByEmail(email);
-    if (existingUser) {
+    // Check if user exists in Firebase Auth
+    let userRecord;
+    try {
+      userRecord = await auth.getUserByEmail(email);
+      // If we get here, user exists
       return res.status(400).json({
         success: false,
         message: "User already exists"
       });
+    } catch (error) {
+      // User not found - this is what we want
+      if (error.code !== "auth/user-not-found") {
+        throw error;
+      }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newAdmin = await createUser(
-      fullName,
-      email,
-      hashedPassword,
-      ROLES.ADMIN
-    );
+    // Create user in Firebase Auth
+    userRecord = await auth.createUser({
+      email: email,
+      password: password,
+      displayName: fullName,
+      emailVerified: true,
+    });
+
+    // Set custom claims for admin role
+    await auth.setCustomUserClaims(userRecord.uid, {
+      role: ROLES.ADMIN,
+      isAdmin: true,
+    });
+
+    // Create user profile in Firestore
+    await db.collection("users").doc(userRecord.uid).set({
+      fullName: fullName,
+      email: email,
+      role: ROLES.ADMIN,
+      isVerified: true,
+      createdAt: timestamp.now(),
+      updatedAt: timestamp.now(),
+    });
 
     res.status(201).json({
       success: true,
       message: "Admin created successfully",
       data: {
-        id: newAdmin.id,
-        full_name: newAdmin.full_name,
-        email: newAdmin.email,
-        role: normalizeRole(newAdmin.role)
+        id: userRecord.uid,
+        full_name: fullName,
+        email: email,
+        role: ROLES.ADMIN
       }
     });
   } catch (error) {
+    console.error("Create admin error:", error);
     next(error);
   }
 };

@@ -54,7 +54,7 @@ app.get("/api/docs.json", (req, res) => {
 import ratingRouter from "./modules/rating/rating.routes.js";
 app.use("/api/ratings", ratingRouter);
 
-import authRouter from "./controllers/auth/auth.router.js";
+import authRouter from "./modules/auth/auth.routes.js";
 import herbRouter from "./controllers/herbs/herb.router.js";
 
 app.use("/api/herbs", herbRouter);

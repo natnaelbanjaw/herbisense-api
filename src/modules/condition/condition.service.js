@@ -1,80 +1,151 @@
-import pool from "../../database/db.js";
-import { getHerbByIdQuery } from "../../database/queries/herb.query.js";
+import { db, timestamp } from "../../config/firebase-admin.js";
+import { createHttpError } from "../../utils/http-error.js";
+import {
+  createNumericDoc,
+  parseNumericId,
+  resolveDocByNumericId,
+  toEntityId,
+} from "../../utils/firestore-id.js";
 
-const getConditionDetailsQuery = async (id, language = 'EN', db = pool) => {
-  const result = await db.query(
-    `SELECT
-       c.id,
-       CASE
-         WHEN $2 != 'EN' AND ct.translated_name IS NOT NULL THEN ct.translated_name
-         ELSE c.name
-       END AS name,
-       CASE
-         WHEN $2 != 'EN' AND ct.translated_description IS NOT NULL THEN ct.translated_description
-         ELSE c.description
-       END AS description,
-       c.created_at,
-       c.updated_at,
-       c.herb_id,
-       h.name AS linked_herb_name,
-       COALESCE(
-         (
-           SELECT json_agg(
-             json_build_object(
-               'id', h2.id,
-               'name', h2.name,
-               'scientific_name', h2.scientific_name,
-               'description', h2.description,
-               'preparation', h2.preparation,
-               'safety_warning', h2.safety_warning,
-               'source', h2.source,
-               'status', h2.status,
-               'average_rating', h2.average_rating,
-               'rating_count', h2.rating_count,
-               'image', (
-                 SELECT hi.image_url
-                 FROM herb_images hi
-                 WHERE hi.herb_id = h2.id
-                 ORDER BY hi.created_at DESC, hi.id DESC
-                 LIMIT 1
-               ),
-               'translation', CASE
-                 WHEN $2 != 'EN' THEN (
-                   SELECT json_build_object(
-                     'translated_name', lt.translated_name,
-                     'translated_uses', lt.translated_uses,
-                     'translated_preparation', lt.translated_preparation,
-                     'translated_safety', lt.translated_safety,
-                     'source', lt.source
-                   )
-                   FROM language_translations lt
-                   WHERE lt.herb_id = h2.id AND lt.language = $2
-                 )
-                 ELSE NULL
-               END
-             )
-             ORDER BY h2.name
-           )
-           FROM herbs h2
-           WHERE (h2.condition_id = c.id
-              OR EXISTS (
-                SELECT 1
-                FROM herb_conditions hc
-                WHERE hc.herb_id = h2.id
-                  AND hc.condition_id = c.id
-              ))
-              AND TRIM(LOWER(COALESCE(h2.status, ''))) = 'published'
-         ),
-         '[]'::json
-       ) AS herbs
-     FROM conditions c
-     LEFT JOIN condition_translations ct ON c.id = ct.condition_id AND ct.language = $2
-     LEFT JOIN herbs h ON c.herb_id = h.id
-     WHERE c.id = $1`,
-    [id, language]
-  );
+const conditionsCollection = db.collection("conditions");
+const herbsCollection = db.collection("herbs");
+const conditionTranslationsCollection = db.collection("condition_translations");
+const languageTranslationsCollection = db.collection("language_translations");
 
-  return result.rows[0] ?? null;
+const toDate = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  return value;
+};
+
+const normalizeLanguage = (language = "EN") => String(language || "EN").trim().toUpperCase();
+
+const getConditionDocById = async (id) => {
+  const doc = await resolveDocByNumericId("conditions", id);
+  if (!doc?.exists) {
+    return null;
+  }
+  return doc;
+};
+
+const getConditionTranslation = async (conditionId, language) => {
+  if (normalizeLanguage(language) === "EN") {
+    return null;
+  }
+
+  const snapshot = await conditionTranslationsCollection
+    .where("conditionId", "==", Number(conditionId))
+    .where("language", "==", normalizeLanguage(language))
+    .limit(1)
+    .get();
+
+  return snapshot.empty ? null : snapshot.docs[0].data();
+};
+
+const getHerbTranslation = async (herbId, language) => {
+  if (normalizeLanguage(language) === "EN") {
+    return null;
+  }
+
+  const snapshot = await languageTranslationsCollection
+    .where("herbId", "==", Number(herbId))
+    .where("language", "==", normalizeLanguage(language))
+    .limit(1)
+    .get();
+
+  return snapshot.empty ? null : snapshot.docs[0].data();
+};
+
+const formatPublishedHerb = async (doc, language = "EN") => {
+  const data = doc.data() || {};
+  const herbId = toEntityId(doc, doc.id);
+  const translation = await getHerbTranslation(herbId, language);
+
+  const imageSnapshot = await doc.ref.collection("images")
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
+
+  return {
+    id: herbId,
+    name: translation?.translatedName || data.name || null,
+    scientific_name: data.scientificName || null,
+    description: translation?.translatedUses || data.description || null,
+    preparation: translation?.translatedPreparation || data.preparation || null,
+    safety_warning: translation?.translatedSafety || data.safetyWarning || null,
+    source: translation?.source || data.source || null,
+    status: data.status || null,
+    average_rating: data.averageRating || 0,
+    rating_count: data.ratingCount || 0,
+    image: imageSnapshot.empty ? null : (imageSnapshot.docs[0].data()?.imageUrl || null),
+    translation: translation
+      ? {
+          translated_name: translation.translatedName || null,
+          translated_uses: translation.translatedUses || null,
+          translated_preparation: translation.translatedPreparation || null,
+          translated_safety: translation.translatedSafety || null,
+          source: translation.source || null,
+        }
+      : null,
+  };
+};
+
+const getPublishedHerbsForCondition = async (conditionId, language = "EN") => {
+  const snapshot = await herbsCollection.get();
+
+  const matchingDocs = snapshot.docs.filter((doc) => {
+    const data = doc.data() || {};
+    const status = String(data.status || "").toLowerCase();
+    const conditionIds = Array.isArray(data.conditionIds)
+      ? data.conditionIds.map((value) => Number(value)).filter(Number.isInteger)
+      : [];
+
+    return status === "published" && conditionIds.includes(Number(conditionId));
+  });
+
+  matchingDocs.sort((left, right) => {
+    const leftName = String(left.data()?.name || "").toLowerCase();
+    const rightName = String(right.data()?.name || "").toLowerCase();
+    return leftName.localeCompare(rightName);
+  });
+
+  return await Promise.all(matchingDocs.map((doc) => formatPublishedHerb(doc, language)));
+};
+
+const formatCondition = async (doc, language = "EN") => {
+  const data = doc.data() || {};
+  const conditionId = toEntityId(doc, doc.id);
+  const translation = await getConditionTranslation(conditionId, language);
+  const linkedHerbId = parseNumericId(data.herbId);
+  let linkedHerbName = null;
+
+  if (linkedHerbId) {
+    const herbDoc = await resolveDocByNumericId("herbs", linkedHerbId);
+    if (herbDoc?.exists) {
+      linkedHerbName = herbDoc.data()?.name || null;
+    }
+  }
+
+  return {
+    id: conditionId,
+    name: translation?.translatedName || data.name || null,
+    description: translation?.translatedDescription || data.description || null,
+    created_at: toDate(data.createdAt) || toDate(data.created_at),
+    updated_at: toDate(data.updatedAt) || toDate(data.updated_at),
+    herb_id: linkedHerbId,
+    linked_herb_name: linkedHerbName,
+    herbs: await getPublishedHerbsForCondition(conditionId, language),
+  };
+};
+
+const findConditionByName = async (name) => {
+  const normalizedName = String(name || "").trim().toLowerCase();
+  if (!normalizedName) {
+    return null;
+  }
+
+  const snapshot = await conditionsCollection.get();
+  return snapshot.docs.find((doc) => String(doc.data()?.name || "").trim().toLowerCase() === normalizedName) || null;
 };
 
 const resolveHerbIds = async (herbIds) => {
@@ -82,373 +153,185 @@ const resolveHerbIds = async (herbIds) => {
     return [];
   }
 
-  const herbs = await Promise.all(
-    herbIds.map((herbId) => getHerbByIdQuery(herbId))
-  );
-  const missingHerbIds = herbIds.filter((_, index) => !herbs[index]);
+  const resolvedIds = [];
 
-  if (missingHerbIds.length) {
-    throw {
-      status: 400,
-      message: `herbIds do not exist: ${missingHerbIds.join(", ")}`
-    };
+  for (const value of herbIds) {
+    const herbId = parseNumericId(value);
+    if (!herbId) {
+      throw createHttpError(400, "herbIds must contain only positive integers");
+    }
+
+    const herbDoc = await resolveDocByNumericId("herbs", herbId);
+    if (!herbDoc?.exists) {
+      throw createHttpError(400, `herbIds do not exist: ${herbId}`);
+    }
+
+    resolvedIds.push(herbId);
   }
 
-  return herbIds;
-};
-
-const replaceConditionHerbLinks = async (client, conditionId, herbIds = []) => {
-  await client.query(
-    `DELETE FROM herb_conditions
-     WHERE condition_id = $1`,
-    [conditionId]
-  );
-
-  if (!herbIds.length) {
-    return [];
-  }
-
-  const placeholders = herbIds
-    .map((_, index) => `($${index + 1}, $${herbIds.length + 1})`)
-    .join(", ");
-
-  const result = await client.query(
-    `INSERT INTO herb_conditions (herb_id, condition_id)
-     VALUES ${placeholders}
-     ON CONFLICT (herb_id, condition_id) DO NOTHING
-     RETURNING *`,
-    [...herbIds, conditionId]
-  );
-
-  return result.rows;
-};
-
-const syncHerbAndConditionLink = async (client, herbId, conditionId) => {
-  const herbUpdate = await client.query(
-    `UPDATE herbs
-     SET condition_id = $1
-     WHERE id = $2
-     RETURNING id, name, condition_id`,
-    [conditionId, herbId]
-  );
-
-  if (!herbUpdate.rows[0]) {
-    throw { status: 404, message: "Herb not found" };
-  }
-
-  const conditionUpdate = await client.query(
-    `UPDATE conditions
-     SET herb_id = $1,
-         updated_at = CURRENT_TIMESTAMP
-     WHERE id = $2
-     RETURNING *`,
-    [herbId, conditionId]
-  );
-
-  if (!conditionUpdate.rows[0]) {
-    throw { status: 404, message: "Condition not found" };
-  }
-
-  return {
-    condition: {
-      ...conditionUpdate.rows[0],
-      linked_herb_name: herbUpdate.rows[0].name
-    },
-    herb: herbUpdate.rows[0]
-  };
+  return [...new Set(resolvedIds)];
 };
 
 export const createConditionService = async (
   { name, description, herbIds },
-  language = 'EN'
+  language = "EN"
 ) => {
-  const resolvedHerbIds = await resolveHerbIds(herbIds);
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const result = await client.query(
-      `INSERT INTO conditions (name, description, herb_id)
-       VALUES ($1, $2, NULL)
-       RETURNING *`,
-      [name, description]
-    );
-
-    const condition = result.rows[0];
-
-    await replaceConditionHerbLinks(client, condition.id, resolvedHerbIds);
-
-    await client.query("COMMIT");
-    return await getConditionDetailsQuery(condition.id, language);
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (_) {}
-    if (error.code === "23505") {
-      throw { status: 409, message: "Condition already exists" };
-    }
-    throw error;
-  } finally {
-    client.release();
+  const existing = await findConditionByName(name);
+  if (existing) {
+    throw createHttpError(409, "Condition already exists");
   }
+
+  const resolvedHerbIds = await resolveHerbIds(herbIds);
+  const now = timestamp.now();
+  const payload = {
+    name,
+    description: description ?? null,
+    herbId: resolvedHerbIds[0] || null,
+    herbIds: resolvedHerbIds,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const { ref } = await createNumericDoc("conditions", payload);
+  const createdDoc = await ref.get();
+
+  return await formatCondition(createdDoc, language);
 };
 
-export const getAllConditionsService = async (language = 'EN') => {
-  const result = await pool.query(
-    `SELECT
-       c.id,
-       CASE
-         WHEN $1 != 'EN' AND ct.translated_name IS NOT NULL THEN ct.translated_name
-         ELSE c.name
-       END AS name,
-       CASE
-         WHEN $1 != 'EN' AND ct.translated_description IS NOT NULL THEN ct.translated_description
-         ELSE c.description
-       END AS description,
-       c.created_at,
-       c.updated_at,
-       c.herb_id,
-       h.name AS linked_herb_name,
-       COALESCE(
-         (
-           SELECT json_agg(
-             json_build_object(
-               'id', h2.id,
-               'name', h2.name,
-               'scientific_name', h2.scientific_name,
-               'description', h2.description,
-               'preparation', h2.preparation,
-               'safety_warning', h2.safety_warning,
-               'source', h2.source,
-               'status', h2.status,
-               'average_rating', h2.average_rating,
-               'rating_count', h2.rating_count,
-               'image', (
-                 SELECT hi.image_url
-                 FROM herb_images hi
-                 WHERE hi.herb_id = h2.id
-                 ORDER BY hi.created_at DESC, hi.id DESC
-                 LIMIT 1
-               ),
-               'translation', CASE
-                 WHEN $1 != 'EN' THEN (
-                   SELECT json_build_object(
-                     'translated_name', lt.translated_name,
-                     'translated_uses', lt.translated_uses,
-                     'translated_preparation', lt.translated_preparation,
-                     'translated_safety', lt.translated_safety,
-                     'source', lt.source
-                   )
-                   FROM language_translations lt
-                   WHERE lt.herb_id = h2.id AND lt.language = $1
-                 )
-                 ELSE NULL
-               END
-             )
-             ORDER BY h2.name
-           )
-           FROM herbs h2
-           WHERE (h2.condition_id = c.id
-              OR EXISTS (
-                SELECT 1
-                FROM herb_conditions hc
-                WHERE hc.herb_id = h2.id
-                  AND hc.condition_id = c.id
-              ))
-              AND TRIM(LOWER(COALESCE(h2.status, ''))) = 'published'
-         ),
-         '[]'::json
-       ) AS herbs
-     FROM conditions c
-     LEFT JOIN condition_translations ct ON c.id = ct.condition_id AND ct.language = $1
-     LEFT JOIN herbs h ON c.herb_id = h.id
-     ORDER BY c.name ASC`,
-    [language]
-  );
-  return result.rows;
+export const getAllConditionsService = async (language = "EN") => {
+  const snapshot = await conditionsCollection.get();
+  const docs = [...snapshot.docs].sort((left, right) => {
+    const leftName = String(left.data()?.name || "").toLowerCase();
+    const rightName = String(right.data()?.name || "").toLowerCase();
+    return leftName.localeCompare(rightName);
+  });
+
+  return await Promise.all(docs.map((doc) => formatCondition(doc, language)));
 };
 
-export const searchConditionsService = async (search, language = 'EN') => {
-  const term = String(search ?? "").trim();
-  const result = await pool.query(
-    `SELECT
-       c.id,
-       CASE
-         WHEN $2 != 'EN' AND ct.translated_name IS NOT NULL THEN ct.translated_name
-         ELSE c.name
-       END AS name,
-       CASE
-         WHEN $2 != 'EN' AND ct.translated_description IS NOT NULL THEN ct.translated_description
-         ELSE c.description
-       END AS description,
-       c.created_at,
-       c.updated_at,
-       c.herb_id,
-       h.name AS linked_herb_name,
-       COALESCE(
-         (
-           SELECT json_agg(
-             json_build_object(
-               'id', h2.id,
-               'name', h2.name,
-               'scientific_name', h2.scientific_name,
-               'description', h2.description,
-               'preparation', h2.preparation,
-               'safety_warning', h2.safety_warning,
-               'source', h2.source,
-               'status', h2.status,
-               'average_rating', h2.average_rating,
-               'rating_count', h2.rating_count,
-               'image', (
-                 SELECT hi.image_url
-                 FROM herb_images hi
-                 WHERE hi.herb_id = h2.id
-                 ORDER BY hi.created_at DESC, hi.id DESC
-                 LIMIT 1
-               ),
-               'translation', CASE
-                 WHEN $2 != 'EN' THEN (
-                   SELECT json_build_object(
-                     'translated_name', lt.translated_name,
-                     'translated_uses', lt.translated_uses,
-                     'translated_preparation', lt.translated_preparation,
-                     'translated_safety', lt.translated_safety,
-                     'source', lt.source
-                   )
-                   FROM language_translations lt
-                   WHERE lt.herb_id = h2.id AND lt.language = $2
-                 )
-                 ELSE NULL
-               END
-             )
-             ORDER BY h2.name
-           )
-           FROM herbs h2
-           WHERE (h2.condition_id = c.id
-              OR EXISTS (
-                SELECT 1
-                FROM herb_conditions hc
-                WHERE hc.herb_id = h2.id
-                  AND hc.condition_id = c.id
-              ))
-              AND TRIM(LOWER(COALESCE(h2.status, ''))) = 'published'
-         ),
-         '[]'::json
-       ) AS herbs
-     FROM conditions c
-     LEFT JOIN condition_translations ct ON c.id = ct.condition_id AND ct.language = $2
-     LEFT JOIN herbs h ON c.herb_id = h.id
-     WHERE c.name ILIKE $1
-        OR COALESCE(c.description, '') ILIKE $1
-        OR EXISTS (
-          SELECT 1
-          FROM condition_translations ct
-          WHERE ct.condition_id = c.id
-            AND (
-              ct.translated_name ILIKE $1
-              OR ct.translated_description ILIKE $1
-            )
-        )
-     ORDER BY c.name ASC`,
-    [`%${term}%`, language]
-  );
-  return result.rows;
+export const searchConditionsService = async (search, language = "EN") => {
+  const term = String(search || "").trim().toLowerCase();
+  if (!term) {
+    return [];
+  }
+
+  const conditions = await getAllConditionsService(language);
+  return conditions.filter((condition) => {
+    const name = String(condition.name || "").toLowerCase();
+    const description = String(condition.description || "").toLowerCase();
+    return name.includes(term) || description.includes(term);
+  });
 };
 
-export const getConditionByIdService = async (id, language = 'EN') => {
-  return await getConditionDetailsQuery(id, language);
+export const getConditionByIdService = async (id, language = "EN") => {
+  const doc = await getConditionDocById(id);
+  if (!doc) {
+    return null;
+  }
+
+  return await formatCondition(doc, language);
 };
 
 export const updateConditionService = async (
   id,
   { name, description, herbIds, hasHerbIdsField },
-  language = 'EN'
+  language = "EN"
 ) => {
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const result = await client.query(
-      `UPDATE conditions
-       SET name = $1,
-           description = $2,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3
-       RETURNING *`,
-      [name, description, id]
-    );
-
-    const condition = result.rows[0];
-    if (!condition) {
-      await client.query("ROLLBACK");
-      return null;
-    }
-
-    if (hasHerbIdsField) {
-      const resolvedHerbIds = await resolveHerbIds(herbIds);
-      await replaceConditionHerbLinks(client, id, resolvedHerbIds);
-    }
-
-    await client.query("COMMIT");
-    return await getConditionDetailsQuery(id, language);
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (_) {}
-    if (error.code === "23505") {
-      throw { status: 409, message: "Condition already exists" };
-    }
-    throw error;
-  } finally {
-    client.release();
+  const doc = await getConditionDocById(id);
+  if (!doc) {
+    return null;
   }
+
+  const existing = await findConditionByName(name);
+  if (existing && toEntityId(existing, existing.id) !== toEntityId(doc, doc.id)) {
+    throw createHttpError(409, "Condition already exists");
+  }
+
+  const updates = {
+    name,
+    description: description ?? null,
+    updatedAt: timestamp.now(),
+  };
+
+  if (hasHerbIdsField) {
+    const resolvedHerbIds = await resolveHerbIds(herbIds);
+    updates.herbIds = resolvedHerbIds;
+    updates.herbId = resolvedHerbIds[0] || null;
+  }
+
+  await doc.ref.set(updates, { merge: true });
+  const updatedDoc = await doc.ref.get();
+  return await formatCondition(updatedDoc, language);
 };
 
 export const deleteConditionService = async (id) => {
-  const check = await pool.query(
-    `SELECT 1
-     FROM recommendation_rules
-     WHERE condition_id = $1
-     LIMIT 1`,
-    [id]
-  );
-
-  if (check.rowCount > 0) {
-    throw {
-      status: 409,
-      message: "Cannot delete condition linked to recommendations"
-    };
+  const doc = await getConditionDocById(id);
+  if (!doc) {
+    return null;
   }
 
-  const result = await pool.query(
-    `DELETE FROM conditions
-     WHERE id = $1
-     RETURNING *`,
-    [id]
-  );
-  return result.rows[0];
+  const recommendationSnapshot = await db.collection("recommendation_rules")
+    .where("conditionId", "==", Number(id))
+    .limit(1)
+    .get();
+
+  if (!recommendationSnapshot.empty) {
+    throw createHttpError(409, "Cannot delete condition linked to recommendations");
+  }
+
+  await doc.ref.delete();
+  return { id: Number(id) };
 };
 
 export const linkHerbToConditionService = async (herbId, conditionId) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const linked = await syncHerbAndConditionLink(client, herbId, conditionId);
+  const parsedHerbId = parseNumericId(herbId);
+  const parsedConditionId = parseNumericId(conditionId);
 
-    await client.query("COMMIT");
-
-    return {
-      herb_id: linked.herb.id,
-      condition_id: linked.herb.condition_id
-    };
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (_) {}
-    throw error;
-  } finally {
-    client.release();
+  if (!parsedHerbId || !parsedConditionId) {
+    throw createHttpError(400, "herbId and conditionId must be positive integers");
   }
+
+  const herbDoc = await resolveDocByNumericId("herbs", parsedHerbId);
+  if (!herbDoc?.exists) {
+    throw createHttpError(404, "Herb not found");
+  }
+
+  const conditionDoc = await getConditionDocById(parsedConditionId);
+  if (!conditionDoc) {
+    throw createHttpError(404, "Condition not found");
+  }
+
+  const herbData = herbDoc.data() || {};
+  const conditionData = conditionDoc.data() || {};
+  const conditionIds = Array.isArray(herbData.conditionIds)
+    ? herbData.conditionIds.map((value) => Number(value)).filter(Number.isInteger)
+    : [];
+
+  if (!conditionIds.includes(parsedConditionId)) {
+    conditionIds.push(parsedConditionId);
+  }
+
+  await herbDoc.ref.set(
+    {
+      conditionIds,
+      updatedAt: timestamp.now(),
+    },
+    { merge: true }
+  );
+
+  await conditionDoc.ref.set(
+    {
+      herbId: parsedHerbId,
+      herbIds: Array.isArray(conditionData.herbIds)
+        ? [...new Set([...conditionData.herbIds.map((value) => Number(value)).filter(Number.isInteger), parsedHerbId])]
+        : [parsedHerbId],
+      updatedAt: timestamp.now(),
+    },
+    { merge: true }
+  );
+
+  return {
+    herb_id: parsedHerbId,
+    condition_id: parsedConditionId,
+  };
 };

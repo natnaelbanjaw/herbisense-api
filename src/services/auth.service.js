@@ -1,60 +1,86 @@
-import bcrypt from "bcrypt";
+import { auth, db } from "../config/firebase-admin.js";
 import env from "../config/env.js";
-import { generateToken } from "../utils/jwt.js";
-import { normalizeRole, ROLES } from "../constants/roles.js";
-import {
-  findUserByEmail,
-  createUser
-} from "../database/queries/user.query.js";
 
-export const registerService = async (fullName, email, password) => {
-  const existingUser = await findUserByEmail(email);
-  if (existingUser) {
-    throw { status: 400, message: "Email already registered" };
+const getFirebaseAuthUrl = (action) => {
+  if (!env.FIREBASE_WEB_API_KEY) {
+    throw new Error("FIREBASE_WEB_API_KEY is required for Firebase email/password authentication");
   }
 
-  const hashedPassword = await bcrypt.hash(password, env.BCRYPT_SALT);
+  return `https://identitytoolkit.googleapis.com/v1/accounts:${action}?key=${env.FIREBASE_WEB_API_KEY}`;
+};
 
-  const user = await createUser(fullName, email, hashedPassword, ROLES.USER);
-  const normalizedRole = normalizeRole(user.role);
+const signInWithEmailAndPassword = async (email, password) => {
+  const response = await fetch(getFirebaseAuthUrl("signInWithPassword"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      returnSecureToken: true,
+    }),
+  });
 
-const token = generateToken({
-  id: user.id,
-  role: normalizedRole,
-  isSuperAdmin: user.is_super_admin
-});
+  const data = await response.json();
 
-  return {
-    user: { ...user, role: normalizedRole },
-    token
-  };
+  if (!response.ok) {
+    const firebaseMessage = data?.error?.message;
+    if (
+      firebaseMessage === "EMAIL_NOT_FOUND" ||
+      firebaseMessage === "INVALID_PASSWORD" ||
+      firebaseMessage === "INVALID_LOGIN_CREDENTIALS"
+    ) {
+      throw new Error("Invalid credentials");
+    }
+
+    throw new Error("Firebase sign-in failed");
+  }
+
+  return data;
 };
 
 export const loginService = async (email, password) => {
-  const user = await findUserByEmail(email);
-  if (!user) {
-    throw { status: 401, message: "Invalid credentials" };
+  try {
+    const signInResult = await signInWithEmailAndPassword(email, password);
+    const userRecord = await auth.getUser(signInResult.localId);
+
+    // Get user data from Firestore
+    const userDoc = await db.collection("users").doc(userRecord.uid).get();
+    const userData = userDoc.data() || {};
+
+    return {
+      user: {
+        id: userRecord.uid,
+        email: userRecord.email,
+        fullName: userData.fullName || userRecord.displayName,
+        role: userData.role || "user",
+        isVerified: userRecord.emailVerified
+      },
+      token: signInResult.idToken
+    };
+  } catch (error) {
+    console.error("Login service error:", error);
+    throw new Error("Invalid credentials");
   }
+};
 
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    throw { status: 401, message: "Invalid credentials" };
+export const verifyToken = async (token) => {
+  try {
+    const decodedToken = await auth.verifyIdToken(token);
+    const userRecord = await auth.getUser(decodedToken.uid);
+    const userDoc = await db.collection("users").doc(decodedToken.uid).get();
+    const userData = userDoc.data() || {};
+    
+    return {
+      id: userRecord.uid,
+      email: userRecord.email,
+      fullName: userData.fullName || userRecord.displayName,
+      role: userData.role || "user",
+      isVerified: userRecord.emailVerified
+    };
+  } catch (error) {
+    console.error("Token verification error:", error);
+    throw new Error("Invalid token");
   }
-
-  const normalizedRole = normalizeRole(user.role);
-
-  const token = generateToken({
-    id: user.id,
-    role: normalizedRole
-  });
-
-  return {
-    user: {
-      id: user.id,
-      full_name: user.full_name,
-      email: user.email,
-      role: normalizedRole
-    },
-    token
-  };
 };

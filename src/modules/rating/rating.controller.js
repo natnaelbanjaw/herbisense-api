@@ -22,8 +22,8 @@ export const rateRecommendation = async (req, res, next) => {
       });
     }
 
-    const { herbId, ratingValue } = validation.value;
-    const data = await rateService(userId, herbId, ratingValue);
+    const { herbId, ratingValue, comment } = validation.value;
+    const data = await rateService(userId, herbId, ratingValue, comment);
 
     res.status(200).json({
       success: true,

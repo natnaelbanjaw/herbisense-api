@@ -1,28 +1,44 @@
-import { verifyToken } from "../utils/jwt.js";
-import { normalizeRole } from "../constants/roles.js";
+import { auth, db } from "../config/firebase-admin.js";
+import { createHttpError } from "../utils/http-error.js";
 
-const authMiddleware = (req, res, next) => {
+const firebaseAuthMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw { status: 401, message: "Unauthorized - No token provided" };
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw createHttpError(401, "No token provided");
     }
+    
+    const token = authHeader.slice(7).trim();
 
-    const token = authHeader.split(" ")[1];
-
-    const decoded = verifyToken(token);
-
+    if (!token) {
+      throw createHttpError(401, "No token provided");
+    }
+    
+    // Verify the Firebase ID token
+    const decodedToken = await auth.verifyIdToken(token);
+    
+    // Get user data from Firestore
+    const userDoc = await db.collection("users").doc(decodedToken.uid).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+    
+    // Attach user to request
     req.user = {
-      ...decoded,
-      role: normalizeRole(decoded.role)
+      id: decodedToken.uid,
+      email: decodedToken.email,
+      fullName: userData.fullName || decodedToken.name,
+      role: userData.role || decodedToken.role || "user",
+      isVerified: decodedToken.email_verified,
     };
-
+    
     next();
-
   } catch (error) {
-    next({ status: 401, message: "Unauthorized - Invalid token" });
+    console.error("Auth middleware error:", error);
+    res.status(401).json({
+      success: false,
+      message: "Unauthorized: Invalid token"
+    });
   }
 };
 
-export default authMiddleware;
+export default firebaseAuthMiddleware;

@@ -1,4 +1,58 @@
-import pool from "../../database/db.js";
+import { db, timestamp } from "../../config/firebase-admin.js";
+import { createHttpError } from "../../utils/http-error.js";
+import {
+  createNumericDoc,
+  parseNumericId,
+  resolveDocByNumericId,
+  toEntityId,
+} from "../../utils/firestore-id.js";
+
+const translationsCollection = db.collection("condition_translations");
+
+const toDate = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  return value;
+};
+
+const getConditionDoc = async (conditionId) => {
+  const conditionDoc = await resolveDocByNumericId("conditions", conditionId);
+  if (!conditionDoc?.exists) {
+    throw createHttpError(400, "Invalid conditionId");
+  }
+
+  return conditionDoc;
+};
+
+const formatConditionTranslation = async (doc) => {
+  const data = doc.data() || {};
+  const conditionId = parseNumericId(data.conditionId);
+  const conditionDoc = conditionId
+    ? await resolveDocByNumericId("conditions", conditionId)
+    : null;
+  const conditionData = conditionDoc?.data() || {};
+  const herbId = parseNumericId(conditionData.herbId);
+  let linkedHerbName = null;
+
+  if (herbId) {
+    const herbDoc = await resolveDocByNumericId("herbs", herbId);
+    if (herbDoc?.exists) {
+      linkedHerbName = herbDoc.data()?.name || null;
+    }
+  }
+
+  return {
+    id: toEntityId(doc, doc.id),
+    condition_id: conditionId,
+    language: data.language || null,
+    translated_name: data.translatedName || data.translated_name || null,
+    translated_description: data.translatedDescription || data.translated_description || null,
+    created_at: toDate(data.createdAt) || toDate(data.created_at),
+    updated_at: toDate(data.updatedAt) || toDate(data.updated_at),
+    herb_id: herbId,
+    linked_herb_name: linkedHerbName,
+  };
+};
 
 export const upsertConditionTranslationService = async ({
   conditionId,
@@ -6,69 +60,80 @@ export const upsertConditionTranslationService = async ({
   translated_name,
   translated_description
 }) => {
-  try {
-    const result = await pool.query(
-      `INSERT INTO condition_translations
-       (condition_id, language, translated_name, translated_description)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (condition_id, language)
-       DO UPDATE SET
-         translated_name = EXCLUDED.translated_name,
-         translated_description = EXCLUDED.translated_description,
-         updated_at = CURRENT_TIMESTAMP
-       RETURNING *`,
-      [conditionId, language, translated_name, translated_description]
+  await getConditionDoc(conditionId);
+
+  const existingSnapshot = await translationsCollection
+    .where("conditionId", "==", Number(conditionId))
+    .where("language", "==", language)
+    .limit(1)
+    .get();
+
+  if (!existingSnapshot.empty) {
+    const existingDoc = existingSnapshot.docs[0];
+
+    await existingDoc.ref.set(
+      {
+        translatedName: translated_name,
+        translatedDescription: translated_description,
+        updatedAt: timestamp.now(),
+      },
+      { merge: true }
     );
 
-    return result.rows[0];
-  } catch (error) {
-    if (error.code === "23503") {
-      throw { status: 400, message: "Invalid conditionId" };
-    }
-    throw error;
+    const updatedDoc = await existingDoc.ref.get();
+    return await formatConditionTranslation(updatedDoc);
   }
+
+  const now = timestamp.now();
+  const { ref } = await createNumericDoc("condition_translations", {
+    conditionId: Number(conditionId),
+    language,
+    translatedName: translated_name,
+    translatedDescription: translated_description,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const createdDoc = await ref.get();
+  return await formatConditionTranslation(createdDoc);
 };
 
 export const getConditionTranslationService = async (conditionId, language) => {
-  const result = await pool.query(
-    `SELECT
-       ct.*,
-       c.herb_id,
-       h.name AS linked_herb_name
-     FROM condition_translations ct
-     JOIN conditions c ON ct.condition_id = c.id
-     LEFT JOIN herbs h ON c.herb_id = h.id
-     WHERE ct.condition_id = $1 AND ct.language = $2`,
-    [conditionId, language]
-  );
+  const snapshot = await translationsCollection
+    .where("conditionId", "==", Number(conditionId))
+    .where("language", "==", language)
+    .limit(1)
+    .get();
 
-  return result.rows[0] || null;
+  if (snapshot.empty) {
+    return null;
+  }
+
+  return await formatConditionTranslation(snapshot.docs[0]);
 };
 
 export const getAllConditionTranslationsService = async (conditionId) => {
-  const result = await pool.query(
-    `SELECT
-       ct.*,
-       c.herb_id,
-       h.name AS linked_herb_name
-     FROM condition_translations ct
-     JOIN conditions c ON ct.condition_id = c.id
-     LEFT JOIN herbs h ON c.herb_id = h.id
-     WHERE ct.condition_id = $1
-     ORDER BY ct.language ASC`,
-    [conditionId]
-  );
+  const snapshot = await translationsCollection
+    .where("conditionId", "==", Number(conditionId))
+    .get();
 
-  return result.rows;
+  const docs = [...snapshot.docs].sort((left, right) => {
+    const leftLanguage = String(left.data()?.language || "");
+    const rightLanguage = String(right.data()?.language || "");
+    return leftLanguage.localeCompare(rightLanguage);
+  });
+
+  return await Promise.all(docs.map((doc) => formatConditionTranslation(doc)));
 };
 
 export const deleteConditionTranslationService = async (id) => {
-  const result = await pool.query(
-    `DELETE FROM condition_translations
-     WHERE id = $1
-     RETURNING *`,
-    [id]
-  );
+  const translationDoc = await resolveDocByNumericId("condition_translations", id);
 
-  return result.rows[0] || null;
+  if (!translationDoc?.exists) {
+    return null;
+  }
+
+  const formatted = await formatConditionTranslation(translationDoc);
+  await translationDoc.ref.delete();
+  return formatted;
 };
