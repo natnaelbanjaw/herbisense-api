@@ -61,6 +61,14 @@
       "description": "User feedback messages"
     },
     {
+      "name": "Suggestions",
+      "description": "User herb suggestions with multilingual responses"
+    },
+    {
+      "name": "Suggestion Translations",
+      "description": "Multilingual translations for suggestion content"
+    },
+    {
       "name": "Translations",
       "description": "Multilingual herb translations"
     },
@@ -1125,6 +1133,112 @@
             }
           }
         }
+      },
+      "SuggestionCreateRequest": {
+        "type": "object",
+        "required": [
+          "herb_name",
+          "condition_used_for",
+          "description",
+          "preparation",
+          "user_full_name",
+          "user_email",
+          "herb_image"
+        ],
+        "properties": {
+          "herb_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Aloe Vera"
+          },
+          "condition_used_for": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Skin irritation and burns"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Cooling herb gel used on irritated skin."
+          },
+          "preparation": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Extract the gel and apply topically."
+          },
+          "scientific_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Aloe barbadensis Miller"
+          },
+          "user_full_name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120,
+            "example": "Jane Doe"
+          },
+          "user_email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "user_phone": {
+            "type": "string",
+            "nullable": true,
+            "example": "+251900000000"
+          },
+          "herb_image": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      },
+      "SuggestionTranslationUpsertRequest": {
+        "type": "object",
+        "required": [
+          "suggestionId",
+          "language",
+          "translated_herb_name",
+          "translated_condition_used_for",
+          "translated_description",
+          "translated_preparation"
+        ],
+        "properties": {
+          "suggestionId": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "EN",
+              "AM",
+              "OM"
+            ],
+            "example": "AM"
+          },
+          "translated_herb_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "አሎ ቬራ"
+          },
+          "translated_condition_used_for": {
+            "type": "string",
+            "minLength": 1,
+            "example": "ለቆዳ መቃጠል እና ማበጥ"
+          },
+          "translated_description": {
+            "type": "string",
+            "minLength": 1,
+            "example": "በቆዳ ላይ የሚቀበረ ማቀዝቀዣ ተፅእኖ ያለው እፅዋት ነው።"
+          },
+          "translated_preparation": {
+            "type": "string",
+            "minLength": 1,
+            "example": "ጂሉን በማውጣት በተጎዳው ቦታ ላይ ይቀቡ።"
+          }
+        }
       }
     }
   },
@@ -1383,7 +1497,7 @@
           "Herbs"
         ],
         "summary": "Search herbs",
-          "description": "Searches by herb name, scientific name, translated herb fields in all supported languages, and linked condition names/translations.",
+        "description": "Searches by herb name, scientific name, translated herb fields in all supported languages, and linked condition names/translations.",
         "parameters": [
           {
             "name": "search",
@@ -1723,7 +1837,11 @@
             "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb fields in the response.",
             "schema": {
               "type": "string",
-              "enum": ["EN", "AM", "OM"],
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
               "example": "AM"
             }
           }
@@ -1828,7 +1946,11 @@
             "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb fields in the response.",
             "schema": {
               "type": "string",
-              "enum": ["EN", "AM", "OM"],
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
               "example": "AM"
             }
           }
@@ -1897,7 +2019,11 @@
             "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb names and descriptions in the response.",
             "schema": {
               "type": "string",
-              "enum": ["EN", "AM", "OM"],
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
               "example": "AM"
             }
           }
@@ -1954,14 +2080,14 @@
         }
       }
     },
-      "/api/conditions/search": {
-        "get": {
-          "tags": [
-            "Conditions"
-          ],
-          "summary": "Search conditions",
-          "description": "Searches base and translated condition names/descriptions across all supported languages.",
-          "parameters": [
+    "/api/conditions/search": {
+      "get": {
+        "tags": [
+          "Conditions"
+        ],
+        "summary": "Search conditions",
+        "description": "Searches base and translated condition names/descriptions across all supported languages.",
+        "parameters": [
           {
             "name": "search",
             "in": "query",
@@ -2019,7 +2145,11 @@
             "description": "Language code for translations (EN, AM, OM). When provided, includes translated herb names and descriptions in the response.",
             "schema": {
               "type": "string",
-              "enum": ["EN", "AM", "OM"],
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
               "example": "AM"
             }
           }
@@ -2548,6 +2678,355 @@
           },
           "401": {
             "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestions": {
+      "post": {
+        "tags": [
+          "Suggestions"
+        ],
+        "summary": "Submit a herb suggestion",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Suggestion submitted"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Suggestions"
+        ],
+        "summary": "Get all suggestions (admin)",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Language code for translated response content (EN, AM, OM).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestions fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestions/mine": {
+      "get": {
+        "tags": [
+          "Suggestions"
+        ],
+        "summary": "Get my suggestions",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Language code for translated response content (EN, AM, OM).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestions fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestions/{id}": {
+      "get": {
+        "tags": [
+          "Suggestions"
+        ],
+        "summary": "Get one suggestion",
+        "description": "Protected route. Owners and admins can access this endpoint. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Language code for translated response content (EN, AM, OM).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
+              "example": "AM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Suggestions"
+        ],
+        "summary": "Delete suggestion (admin)",
+        "description": "Protected route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestion-translations": {
+      "post": {
+        "tags": [
+          "Suggestion Translations"
+        ],
+        "summary": "Create or update suggestion translation",
+        "description": "Protected admin route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionTranslationUpsertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suggestion translation saved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestion-translations/{id}": {
+      "delete": {
+        "tags": [
+          "Suggestion Translations"
+        ],
+        "summary": "Delete suggestion translation",
+        "description": "Protected admin route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion translation deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestion-translations/{suggestionId}": {
+      "get": {
+        "tags": [
+          "Suggestion Translations"
+        ],
+        "summary": "Get all translations for a suggestion",
+        "description": "Protected admin route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "suggestionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion translations fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/suggestion-translations/{suggestionId}/{language}": {
+      "get": {
+        "tags": [
+          "Suggestion Translations"
+        ],
+        "summary": "Get one suggestion translation by suggestion and language",
+        "description": "Protected admin route. Header: Authorization: Bearer <JWT_TOKEN>",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "suggestionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EN",
+                "AM",
+                "OM"
+              ],
+              "example": "OM"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion translation fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
           }
         }
       }

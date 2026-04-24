@@ -37,6 +37,8 @@ const setupCompleteFirestoreStructure = async () => {
       recommendation_rules: null,
       language_translations: null,
       condition_translations: null,
+      suggestions: null,
+      suggestion_translations: null,
       feedback: null,
       saved_herbs: null,
       favorites: null,
@@ -245,7 +247,8 @@ const setupCompleteFirestoreStructure = async () => {
       tables: [
         "users", "herbs", "conditions", "favorites", "recommendation_rules",
         "ratings", "language_translations", "herb_images", "feedback",
-        "saved_herbs", "condition_translations", "uploads"
+        "saved_herbs", "condition_translations", "suggestions",
+        "suggestion_translations", "uploads"
       ],
       adminUser: {
         uid: adminUid,
@@ -282,6 +285,12 @@ const setupCompleteFirestoreStructure = async () => {
     
     Collection: condition_translations
     - Fields: conditionId (Ascending), language (Ascending)
+
+    Collection: suggestions
+    - Fields: userId (Ascending), createdAt (Descending)
+
+    Collection: suggestion_translations
+    - Fields: suggestionId (Ascending), language (Ascending)
     
     Collection: recommendation_rules
     - Fields: conditionId (Ascending), priority (Descending)

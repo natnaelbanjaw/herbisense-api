@@ -98,6 +98,10 @@ import feedbackRouter from "./modules/feedback/feedback.routes.js";
 
 app.use("/api/feedback", feedbackRouter);
 
+import suggestionRouter from "./modules/suggestion/suggestion.routes.js";
+
+app.use("/api/suggestions", suggestionRouter);
+
 import savedHerbRouter from "./modules/saved-herb/saved-herb.routes.js";
 
 app.use("/api/saved-herbs", savedHerbRouter);
@@ -105,6 +109,10 @@ app.use("/api/saved-herbs", savedHerbRouter);
 import conditionTranslationRouter from "./modules/condition-translation/condition-translation.routes.js";
 
 app.use("/api/condition-translations", conditionTranslationRouter);
+
+import suggestionTranslationRouter from "./modules/suggestion-translation/suggestion-translation.routes.js";
+
+app.use("/api/suggestion-translations", suggestionTranslationRouter);
 
 // Error Handler (must be last)
 app.use(errorMiddleware);
