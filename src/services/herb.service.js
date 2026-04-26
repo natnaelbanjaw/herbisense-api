@@ -11,6 +11,7 @@ import {
   resolveDocByNumericId,
   toEntityId,
 } from "../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../utils/local-cache.js";
 
 const herbsCollection = db.collection("herbs");
 const conditionsCollection = db.collection("conditions");
@@ -264,12 +265,23 @@ export const createHerbService = async (data, userId) => {
 
   const { ref: herbRef } = await createNumericDoc("herbs", herbPayload);
   const herbDoc = await herbRef.get();
+  await invalidateLocalCache([
+    "herbs:",
+    "uploads:",
+    "favorites:",
+    "saved-herbs:",
+    "conditions:",
+    "translations:",
+    "ratings:",
+  ]);
   return await formatHerbDocument(herbDoc);
 };
 
 export const getHerbByIdService = async (id) => {
-  const herbDoc = await getFirestoreHerbDocById(id);
-  return await formatHerbDocument(herbDoc);
+  return await withLocalCache(`herbs:id:${id}`, async () => {
+    const herbDoc = await getFirestoreHerbDocById(id);
+    return await formatHerbDocument(herbDoc);
+  });
 };
 
 export const updateHerbService = async (id, data) => {
@@ -291,12 +303,30 @@ export const updateHerbService = async (id, data) => {
   );
 
   const updatedDoc = await herbDoc.ref.get();
+  await invalidateLocalCache([
+    "herbs:",
+    "uploads:",
+    "favorites:",
+    "saved-herbs:",
+    "conditions:",
+    "translations:",
+    "ratings:",
+  ]);
   return await formatHerbDocument(updatedDoc);
 };
 
 export const deleteHerbService = async (id) => {
   const herbDoc = await getFirestoreHerbDocById(id);
   await herbDoc.ref.delete();
+  await invalidateLocalCache([
+    "herbs:",
+    "uploads:",
+    "favorites:",
+    "saved-herbs:",
+    "conditions:",
+    "translations:",
+    "ratings:",
+  ]);
 };
 
 export const updateHerbStatusService = async (id, status) => {
@@ -311,29 +341,50 @@ export const updateHerbStatusService = async (id, status) => {
   );
 
   const updatedDoc = await herbDoc.ref.get();
+  await invalidateLocalCache([
+    "herbs:",
+    "uploads:",
+    "favorites:",
+    "saved-herbs:",
+    "conditions:",
+    "translations:",
+    "ratings:",
+  ]);
   return await formatHerbDocument(updatedDoc);
 };
 
 export const getPublishedHerbsService = async (page = 1, limit = 10) => {
-  return await getHerbsByStatusFromFirestore("published", page, limit);
+  return await withLocalCache(`herbs:published:${page}:${limit}`, async () => {
+    return await getHerbsByStatusFromFirestore("published", page, limit);
+  });
 };
 
 export const getPendingHerbsService = async (page = 1, limit = 10) => {
-  return await getHerbsByStatusFromFirestore("pending", page, limit);
+  return await withLocalCache(`herbs:pending:${page}:${limit}`, async () => {
+    return await getHerbsByStatusFromFirestore("pending", page, limit);
+  });
 };
 
 export const searchHerbsService = async (queryParams) => {
   const page = parseInt(queryParams.page) || 1;
   const limit = parseInt(queryParams.limit) || 10;
   const offset = (page - 1) * limit;
+  const sort = queryParams.sort || "created_at";
+  const search = queryParams.search || "";
+  const conditionId = queryParams.conditionId || "";
 
-  return await searchHerbsQuery({
-    search: queryParams.search,
-    conditionId: queryParams.conditionId,
-    limit,
-    offset,
-    sort: queryParams.sort || "created_at"
-  });
+  return await withLocalCache(
+    `herbs:search:${search}:${conditionId}:${page}:${limit}:${sort}`,
+    async () => {
+      return await searchHerbsQuery({
+        search,
+        conditionId,
+        limit,
+        offset,
+        sort
+      });
+    }
+  );
 };
 
 export const getRecommendedHerbsService = async (
@@ -343,9 +394,11 @@ export const getRecommendedHerbsService = async (
 ) => {
   const offset = (page - 1) * limit;
 
-  return await getRecommendedHerbsQuery(
-    userId,
-    limit,
-    offset
-  );
+  return await withLocalCache(`herbs:recommended:${userId}:${page}:${limit}`, async () => {
+    return await getRecommendedHerbsQuery(
+      userId,
+      limit,
+      offset
+    );
+  });
 };

@@ -5,6 +5,7 @@ import {
   resolveDocByNumericId,
   toEntityId,
 } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const translationsCollection = db.collection("language_translations");
 
@@ -73,6 +74,7 @@ export const upsertTranslationService = async ({
     );
 
     const updatedDoc = await existingDoc.ref.get();
+    await invalidateLocalCache(["translations:", "herbs:", "favorites:", "saved-herbs:", "conditions:"]);
     return await formatTranslation(updatedDoc);
   }
 
@@ -90,35 +92,40 @@ export const upsertTranslationService = async ({
   });
 
   const createdDoc = await ref.get();
+  await invalidateLocalCache(["translations:", "herbs:", "favorites:", "saved-herbs:", "conditions:"]);
   return await formatTranslation(createdDoc);
 };
 
 export const getTranslationService = async (herbId, language) => {
-  const snapshot = await translationsCollection
-    .where("herbId", "==", Number(herbId))
-    .where("language", "==", language)
-    .limit(1)
-    .get();
+  return await withLocalCache(`translations:one:${herbId}:${language}`, async () => {
+    const snapshot = await translationsCollection
+      .where("herbId", "==", Number(herbId))
+      .where("language", "==", language)
+      .limit(1)
+      .get();
 
-  if (snapshot.empty) {
-    return null;
-  }
+    if (snapshot.empty) {
+      return null;
+    }
 
-  return await formatTranslation(snapshot.docs[0]);
+    return await formatTranslation(snapshot.docs[0]);
+  });
 };
 
 export const getAllTranslationsService = async (herbId) => {
-  const snapshot = await translationsCollection
-    .where("herbId", "==", Number(herbId))
-    .get();
+  return await withLocalCache(`translations:all:${herbId}`, async () => {
+    const snapshot = await translationsCollection
+      .where("herbId", "==", Number(herbId))
+      .get();
 
-  const docs = [...snapshot.docs].sort((left, right) => {
-    const leftLanguage = String(left.data()?.language || "");
-    const rightLanguage = String(right.data()?.language || "");
-    return leftLanguage.localeCompare(rightLanguage);
+    const docs = [...snapshot.docs].sort((left, right) => {
+      const leftLanguage = String(left.data()?.language || "");
+      const rightLanguage = String(right.data()?.language || "");
+      return leftLanguage.localeCompare(rightLanguage);
+    });
+
+    return await Promise.all(docs.map((doc) => formatTranslation(doc)));
   });
-
-  return await Promise.all(docs.map((doc) => formatTranslation(doc)));
 };
 
 export const deleteTranslationService = async (id) => {
@@ -130,5 +137,6 @@ export const deleteTranslationService = async (id) => {
 
   const formatted = await formatTranslation(translationDoc);
   await translationDoc.ref.delete();
+  await invalidateLocalCache(["translations:", "herbs:", "favorites:", "saved-herbs:", "conditions:"]);
   return formatted;
 };

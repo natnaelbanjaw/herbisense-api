@@ -6,6 +6,7 @@ import {
   resolveDocByNumericId,
   toEntityId,
 } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const translationsCollection = db.collection("condition_translations");
 
@@ -81,6 +82,7 @@ export const upsertConditionTranslationService = async ({
     );
 
     const updatedDoc = await existingDoc.ref.get();
+    await invalidateLocalCache(["condition-translations:", "conditions:"]);
     return await formatConditionTranslation(updatedDoc);
   }
 
@@ -95,35 +97,40 @@ export const upsertConditionTranslationService = async ({
   });
 
   const createdDoc = await ref.get();
+  await invalidateLocalCache(["condition-translations:", "conditions:"]);
   return await formatConditionTranslation(createdDoc);
 };
 
 export const getConditionTranslationService = async (conditionId, language) => {
-  const snapshot = await translationsCollection
-    .where("conditionId", "==", Number(conditionId))
-    .where("language", "==", language)
-    .limit(1)
-    .get();
+  return await withLocalCache(`condition-translations:one:${conditionId}:${language}`, async () => {
+    const snapshot = await translationsCollection
+      .where("conditionId", "==", Number(conditionId))
+      .where("language", "==", language)
+      .limit(1)
+      .get();
 
-  if (snapshot.empty) {
-    return null;
-  }
+    if (snapshot.empty) {
+      return null;
+    }
 
-  return await formatConditionTranslation(snapshot.docs[0]);
+    return await formatConditionTranslation(snapshot.docs[0]);
+  });
 };
 
 export const getAllConditionTranslationsService = async (conditionId) => {
-  const snapshot = await translationsCollection
-    .where("conditionId", "==", Number(conditionId))
-    .get();
+  return await withLocalCache(`condition-translations:all:${conditionId}`, async () => {
+    const snapshot = await translationsCollection
+      .where("conditionId", "==", Number(conditionId))
+      .get();
 
-  const docs = [...snapshot.docs].sort((left, right) => {
-    const leftLanguage = String(left.data()?.language || "");
-    const rightLanguage = String(right.data()?.language || "");
-    return leftLanguage.localeCompare(rightLanguage);
+    const docs = [...snapshot.docs].sort((left, right) => {
+      const leftLanguage = String(left.data()?.language || "");
+      const rightLanguage = String(right.data()?.language || "");
+      return leftLanguage.localeCompare(rightLanguage);
+    });
+
+    return await Promise.all(docs.map((doc) => formatConditionTranslation(doc)));
   });
-
-  return await Promise.all(docs.map((doc) => formatConditionTranslation(doc)));
 };
 
 export const deleteConditionTranslationService = async (id) => {
@@ -135,5 +142,6 @@ export const deleteConditionTranslationService = async (id) => {
 
   const formatted = await formatConditionTranslation(translationDoc);
   await translationDoc.ref.delete();
+  await invalidateLocalCache(["condition-translations:", "conditions:"]);
   return formatted;
 };

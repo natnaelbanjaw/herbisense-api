@@ -5,6 +5,7 @@ import {
   resolveDocByNumericId,
   toEntityId
 } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const suggestionTranslationsCollection = db.collection("suggestion_translations");
 
@@ -70,6 +71,7 @@ export const upsertSuggestionTranslationService = async ({
     );
 
     const updatedDoc = await existingDoc.ref.get();
+    await invalidateLocalCache(["suggestion-translations:", "suggestions:"]);
     return await formatSuggestionTranslation(updatedDoc);
   }
 
@@ -86,35 +88,40 @@ export const upsertSuggestionTranslationService = async ({
   });
 
   const createdDoc = await ref.get();
+  await invalidateLocalCache(["suggestion-translations:", "suggestions:"]);
   return await formatSuggestionTranslation(createdDoc);
 };
 
 export const getSuggestionTranslationService = async (suggestionId, language) => {
-  const snapshot = await suggestionTranslationsCollection
-    .where("suggestionId", "==", Number(suggestionId))
-    .where("language", "==", language)
-    .limit(1)
-    .get();
+  return await withLocalCache(`suggestion-translations:one:${suggestionId}:${language}`, async () => {
+    const snapshot = await suggestionTranslationsCollection
+      .where("suggestionId", "==", Number(suggestionId))
+      .where("language", "==", language)
+      .limit(1)
+      .get();
 
-  if (snapshot.empty) {
-    return null;
-  }
+    if (snapshot.empty) {
+      return null;
+    }
 
-  return await formatSuggestionTranslation(snapshot.docs[0]);
+    return await formatSuggestionTranslation(snapshot.docs[0]);
+  });
 };
 
 export const getAllSuggestionTranslationsService = async (suggestionId) => {
-  const snapshot = await suggestionTranslationsCollection
-    .where("suggestionId", "==", Number(suggestionId))
-    .get();
+  return await withLocalCache(`suggestion-translations:all:${suggestionId}`, async () => {
+    const snapshot = await suggestionTranslationsCollection
+      .where("suggestionId", "==", Number(suggestionId))
+      .get();
 
-  const docs = [...snapshot.docs].sort((left, right) => {
-    const leftLanguage = String(left.data()?.language || "");
-    const rightLanguage = String(right.data()?.language || "");
-    return leftLanguage.localeCompare(rightLanguage);
+    const docs = [...snapshot.docs].sort((left, right) => {
+      const leftLanguage = String(left.data()?.language || "");
+      const rightLanguage = String(right.data()?.language || "");
+      return leftLanguage.localeCompare(rightLanguage);
+    });
+
+    return await Promise.all(docs.map((doc) => formatSuggestionTranslation(doc)));
   });
-
-  return await Promise.all(docs.map((doc) => formatSuggestionTranslation(doc)));
 };
 
 export const deleteSuggestionTranslationService = async (id) => {
@@ -125,5 +132,6 @@ export const deleteSuggestionTranslationService = async (id) => {
 
   const formatted = await formatSuggestionTranslation(translationDoc);
   await translationDoc.ref.delete();
+  await invalidateLocalCache(["suggestion-translations:", "suggestions:"]);
   return formatted;
 };

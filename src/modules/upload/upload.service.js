@@ -1,6 +1,7 @@
 import { db, timestamp } from "../../config/firebase-admin.js";
 import { createHttpError } from "../../utils/http-error.js";
 import { parseNumericId, resolveDocByNumericId, toEntityId } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const herbsCollection = db.collection("herbs");
 
@@ -108,34 +109,39 @@ export const saveHerbImageService = async (herbId, imageUrl) => {
   });
 
   const savedDoc = await imageRef.get();
+  await invalidateLocalCache(["uploads:", "herbs:", "saved-herbs:"]);
   return formatImageDoc(savedDoc, herbId);
 };
 
 export const getHerbsService = async () => {
-  const snapshot = await herbsCollection.get();
-  const herbs = await Promise.all(snapshot.docs.map((doc) => formatHerbDoc(doc)));
+  return await withLocalCache("uploads:herbs", async () => {
+    const snapshot = await herbsCollection.get();
+    const herbs = await Promise.all(snapshot.docs.map((doc) => formatHerbDoc(doc)));
 
-  herbs.sort((left, right) => {
-    const leftTime = new Date(left.created_at).getTime() || 0;
-    const rightTime = new Date(right.created_at).getTime() || 0;
-    return rightTime - leftTime;
+    herbs.sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime() || 0;
+      const rightTime = new Date(right.created_at).getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+    return herbs;
   });
-
-  return herbs;
 };
 
 export const getHerbImagesService = async (herbId) => {
-  const herbDoc = await getHerbDoc(herbId);
-  const snapshot = await herbDoc.ref.collection("images").get();
+  return await withLocalCache(`uploads:images:${herbId}`, async () => {
+    const herbDoc = await getHerbDoc(herbId);
+    const snapshot = await herbDoc.ref.collection("images").get();
 
-  const images = snapshot.docs.map((doc) => formatImageDoc(doc, herbId));
-  images.sort((left, right) => {
-    const leftTime = new Date(left.created_at).getTime() || 0;
-    const rightTime = new Date(right.created_at).getTime() || 0;
-    return rightTime - leftTime;
+    const images = snapshot.docs.map((doc) => formatImageDoc(doc, herbId));
+    images.sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime() || 0;
+      const rightTime = new Date(right.created_at).getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+    return images;
   });
-
-  return images;
 };
 
 export const deleteImageService = async (id) => {
@@ -149,5 +155,6 @@ export const deleteImageService = async (id) => {
   const herbId = parseNumericId(imageDoc.ref.parent.parent?.id);
   const formatted = formatImageDoc(imageDoc, herbId);
   await imageDoc.ref.delete();
+  await invalidateLocalCache(["uploads:", "herbs:", "saved-herbs:"]);
   return formatted;
 };

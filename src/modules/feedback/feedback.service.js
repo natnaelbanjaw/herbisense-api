@@ -1,5 +1,6 @@
 import { db, timestamp } from "../../config/firebase-admin.js";
 import { createNumericDoc, resolveDocByNumericId, toEntityId } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const feedbackCollection = db.collection("feedback");
 
@@ -37,36 +38,41 @@ export const createFeedbackService = async (userId, name, email, message) => {
   });
 
   const createdDoc = await ref.get();
+  await invalidateLocalCache(["feedback:"]);
   return await formatFeedback(createdDoc);
 };
 
 export const getMyFeedbackService = async (userId) => {
-  const snapshot = await feedbackCollection
-    .where("userId", "==", String(userId))
-    .get();
+  return await withLocalCache(`feedback:user:${userId}`, async () => {
+    const snapshot = await feedbackCollection
+      .where("userId", "==", String(userId))
+      .get();
 
-  const feedback = await Promise.all(snapshot.docs.map((doc) => formatFeedback(doc)));
+    const feedback = await Promise.all(snapshot.docs.map((doc) => formatFeedback(doc)));
 
-  feedback.sort((left, right) => {
-    const leftTime = new Date(left.created_at).getTime() || 0;
-    const rightTime = new Date(right.created_at).getTime() || 0;
-    return rightTime - leftTime;
+    feedback.sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime() || 0;
+      const rightTime = new Date(right.created_at).getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+    return feedback.map(({ account_email, ...item }) => item);
   });
-
-  return feedback.map(({ account_email, ...item }) => item);
 };
 
 export const getAllFeedbackService = async () => {
-  const snapshot = await feedbackCollection.get();
-  const feedback = await Promise.all(snapshot.docs.map((doc) => formatFeedback(doc)));
+  return await withLocalCache("feedback:all", async () => {
+    const snapshot = await feedbackCollection.get();
+    const feedback = await Promise.all(snapshot.docs.map((doc) => formatFeedback(doc)));
 
-  feedback.sort((left, right) => {
-    const leftTime = new Date(left.created_at).getTime() || 0;
-    const rightTime = new Date(right.created_at).getTime() || 0;
-    return rightTime - leftTime;
+    feedback.sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime() || 0;
+      const rightTime = new Date(right.created_at).getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+    return feedback;
   });
-
-  return feedback;
 };
 
 export const deleteFeedbackService = async (id) => {
@@ -78,5 +84,6 @@ export const deleteFeedbackService = async (id) => {
 
   const formatted = await formatFeedback(feedbackDoc);
   await feedbackDoc.ref.delete();
+  await invalidateLocalCache(["feedback:"]);
   return formatted;
 };

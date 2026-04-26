@@ -6,6 +6,7 @@ import {
   resolveDocByNumericId,
   toEntityId,
 } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const conditionsCollection = db.collection("conditions");
 const herbsCollection = db.collection("herbs");
@@ -194,19 +195,22 @@ export const createConditionService = async (
 
   const { ref } = await createNumericDoc("conditions", payload);
   const createdDoc = await ref.get();
+  await invalidateLocalCache(["conditions:", "herbs:", "uploads:", "translations:"]);
 
   return await formatCondition(createdDoc, language);
 };
 
 export const getAllConditionsService = async (language = "EN") => {
-  const snapshot = await conditionsCollection.get();
-  const docs = [...snapshot.docs].sort((left, right) => {
-    const leftName = String(left.data()?.name || "").toLowerCase();
-    const rightName = String(right.data()?.name || "").toLowerCase();
-    return leftName.localeCompare(rightName);
-  });
+  return await withLocalCache(`conditions:all:${language}`, async () => {
+    const snapshot = await conditionsCollection.get();
+    const docs = [...snapshot.docs].sort((left, right) => {
+      const leftName = String(left.data()?.name || "").toLowerCase();
+      const rightName = String(right.data()?.name || "").toLowerCase();
+      return leftName.localeCompare(rightName);
+    });
 
-  return await Promise.all(docs.map((doc) => formatCondition(doc, language)));
+    return await Promise.all(docs.map((doc) => formatCondition(doc, language)));
+  });
 };
 
 export const searchConditionsService = async (search, language = "EN") => {
@@ -215,21 +219,25 @@ export const searchConditionsService = async (search, language = "EN") => {
     return [];
   }
 
-  const conditions = await getAllConditionsService(language);
-  return conditions.filter((condition) => {
-    const name = String(condition.name || "").toLowerCase();
-    const description = String(condition.description || "").toLowerCase();
-    return name.includes(term) || description.includes(term);
+  return await withLocalCache(`conditions:search:${language}:${term}`, async () => {
+    const conditions = await getAllConditionsService(language);
+    return conditions.filter((condition) => {
+      const name = String(condition.name || "").toLowerCase();
+      const description = String(condition.description || "").toLowerCase();
+      return name.includes(term) || description.includes(term);
+    });
   });
 };
 
 export const getConditionByIdService = async (id, language = "EN") => {
-  const doc = await getConditionDocById(id);
-  if (!doc) {
-    return null;
-  }
+  return await withLocalCache(`conditions:id:${id}:${language}`, async () => {
+    const doc = await getConditionDocById(id);
+    if (!doc) {
+      return null;
+    }
 
-  return await formatCondition(doc, language);
+    return await formatCondition(doc, language);
+  });
 };
 
 export const updateConditionService = async (
@@ -261,6 +269,7 @@ export const updateConditionService = async (
 
   await doc.ref.set(updates, { merge: true });
   const updatedDoc = await doc.ref.get();
+  await invalidateLocalCache(["conditions:", "herbs:", "uploads:", "translations:"]);
   return await formatCondition(updatedDoc, language);
 };
 
@@ -280,6 +289,7 @@ export const deleteConditionService = async (id) => {
   }
 
   await doc.ref.delete();
+  await invalidateLocalCache(["conditions:", "herbs:", "uploads:", "translations:", "recommendations:"]);
   return { id: Number(id) };
 };
 
@@ -329,6 +339,8 @@ export const linkHerbToConditionService = async (herbId, conditionId) => {
     },
     { merge: true }
   );
+
+  await invalidateLocalCache(["conditions:", "herbs:", "uploads:", "translations:"]);
 
   return {
     herb_id: parsedHerbId,

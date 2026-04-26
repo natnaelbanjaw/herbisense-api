@@ -1,6 +1,7 @@
 import { db, timestamp, fieldValue } from "../../config/firebase-admin.js";
 import { createHttpError } from "../../utils/http-error.js";
 import { createNumericDoc, resolveDocByNumericId, toEntityId } from "../../utils/firestore-id.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const ratingsCollection = db.collection("ratings");
 
@@ -51,6 +52,8 @@ export const rateService = async (userId, herbId, ratingValue, comment = null) =
     ratingCount: newCount,
     updated_at: timestamp.now(),
   });
+
+  await invalidateLocalCache(["ratings:", "herbs:", "favorites:", "saved-herbs:"]);
   
   return {
     id: ratingId,
@@ -65,48 +68,52 @@ export const rateService = async (userId, herbId, ratingValue, comment = null) =
 
 // This matches what controller expects: getRatingsByHerbService(herbId)
 export const getRatingsByHerbService = async (herbId) => {
-  const snapshot = await ratingsCollection
-    .where("herbId", "==", Number(herbId))
-    .get();
-  
-  const ratings = [];
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    ratings.push({
-      id: toEntityId(doc, doc.id),
-      user_id: data.userId,
-      herb_id: data.herbId,
-      rating: data.rating,
-      rating_value: data.ratingValue,
-      comment: data.comment || null,
-      created_at: data.created_at?.toDate?.() || new Date(),
+  return await withLocalCache(`ratings:herb:${herbId}`, async () => {
+    const snapshot = await ratingsCollection
+      .where("herbId", "==", Number(herbId))
+      .get();
+    
+    const ratings = [];
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      ratings.push({
+        id: toEntityId(doc, doc.id),
+        user_id: data.userId,
+        herb_id: data.herbId,
+        rating: data.rating,
+        rating_value: data.ratingValue,
+        comment: data.comment || null,
+        created_at: data.created_at?.toDate?.() || new Date(),
+      });
+    }
+
+    ratings.sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime() || 0;
+      const rightTime = new Date(right.created_at).getTime() || 0;
+      return rightTime - leftTime;
     });
-  }
 
-  ratings.sort((left, right) => {
-    const leftTime = new Date(left.created_at).getTime() || 0;
-    const rightTime = new Date(right.created_at).getTime() || 0;
-    return rightTime - leftTime;
+    return ratings;
   });
-
-  return ratings;
 };
 
 // This matches what controller expects: getAverageRatingService(herbId)
 export const getAverageRatingService = async (herbId) => {
-  const herbDoc = await resolveDocByNumericId("herbs", herbId);
-  
-  if (!herbDoc?.exists) {
-    throw createHttpError(404, "Herb not found");
-  }
-  
-  const herbData = herbDoc.data();
-  
-  return {
-    herb_id: herbId,
-    average_rating: herbData.averageRating || 0,
-    rating_count: herbData.ratingCount || 0
-  };
+  return await withLocalCache(`ratings:average:${herbId}`, async () => {
+    const herbDoc = await resolveDocByNumericId("herbs", herbId);
+    
+    if (!herbDoc?.exists) {
+      throw createHttpError(404, "Herb not found");
+    }
+    
+    const herbData = herbDoc.data();
+    
+    return {
+      herb_id: herbId,
+      average_rating: herbData.averageRating || 0,
+      rating_count: herbData.ratingCount || 0
+    };
+  });
 };
 
 // Keep these for backward compatibility if needed elsewhere

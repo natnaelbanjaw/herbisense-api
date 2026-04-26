@@ -6,6 +6,7 @@ import {
   toEntityId
 } from "../../utils/firestore-id.js";
 import { normalizeLanguage } from "./suggestion.validation.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 const suggestionsCollection = db.collection("suggestions");
 const suggestionTranslationsCollection = db.collection("suggestion_translations");
@@ -95,49 +96,59 @@ export const createSuggestionService = async (payload, authUser, herbImage) => {
   });
 
   const createdDoc = await ref.get();
+  await invalidateLocalCache(["suggestions:", "suggestion-translations:"]);
   return await formatSuggestion(createdDoc);
 };
 
 export const getMySuggestionsService = async (userId, language = "EN") => {
-  const snapshot = await suggestionsCollection
-    .where("userId", "==", String(userId))
-    .get();
+  return await withLocalCache(`suggestions:user:${userId}:${language}`, async () => {
+    const snapshot = await suggestionsCollection
+      .where("userId", "==", String(userId))
+      .get();
 
-  const docs = [...snapshot.docs].sort((left, right) => {
-    const leftTime = new Date(left.data()?.createdAt?.toDate?.() || left.data()?.createdAt || 0).getTime() || 0;
-    const rightTime = new Date(right.data()?.createdAt?.toDate?.() || right.data()?.createdAt || 0).getTime() || 0;
-    return rightTime - leftTime;
+    const docs = [...snapshot.docs].sort((left, right) => {
+      const leftTime = new Date(left.data()?.createdAt?.toDate?.() || left.data()?.createdAt || 0).getTime() || 0;
+      const rightTime = new Date(right.data()?.createdAt?.toDate?.() || right.data()?.createdAt || 0).getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+    return await Promise.all(docs.map((doc) => formatSuggestion(doc, language)));
   });
-
-  return await Promise.all(docs.map((doc) => formatSuggestion(doc, language)));
 };
 
 export const getAllSuggestionsService = async (language = "EN") => {
-  const snapshot = await suggestionsCollection.get();
-  const docs = [...snapshot.docs].sort((left, right) => {
-    const leftTime = new Date(left.data()?.createdAt?.toDate?.() || left.data()?.createdAt || 0).getTime() || 0;
-    const rightTime = new Date(right.data()?.createdAt?.toDate?.() || right.data()?.createdAt || 0).getTime() || 0;
-    return rightTime - leftTime;
-  });
+  return await withLocalCache(`suggestions:all:${language}`, async () => {
+    const snapshot = await suggestionsCollection.get();
+    const docs = [...snapshot.docs].sort((left, right) => {
+      const leftTime = new Date(left.data()?.createdAt?.toDate?.() || left.data()?.createdAt || 0).getTime() || 0;
+      const rightTime = new Date(right.data()?.createdAt?.toDate?.() || right.data()?.createdAt || 0).getTime() || 0;
+      return rightTime - leftTime;
+    });
 
-  return await Promise.all(docs.map((doc) => formatSuggestion(doc, language)));
+    return await Promise.all(docs.map((doc) => formatSuggestion(doc, language)));
+  });
 };
 
 export const getSuggestionByIdService = async (id, requester, language = "EN") => {
-  const doc = await getSuggestionDocById(id);
-  if (!doc) {
-    return null;
-  }
+  return await withLocalCache(
+    `suggestions:id:${id}:${requester?.id || "anonymous"}:${requester?.role || "none"}:${language}`,
+    async () => {
+      const doc = await getSuggestionDocById(id);
+      if (!doc) {
+        return null;
+      }
 
-  const data = doc.data() || {};
-  const isAdmin = ["admin", "super_admin"].includes(String(requester?.role || ""));
-  const isOwner = String(data.userId || "") === String(requester?.id || "");
+      const data = doc.data() || {};
+      const isAdmin = ["admin", "super_admin"].includes(String(requester?.role || ""));
+      const isOwner = String(data.userId || "") === String(requester?.id || "");
 
-  if (!isAdmin && !isOwner) {
-    throw createHttpError(403, "You are not allowed to access this suggestion");
-  }
+      if (!isAdmin && !isOwner) {
+        throw createHttpError(403, "You are not allowed to access this suggestion");
+      }
 
-  return await formatSuggestion(doc, language);
+      return await formatSuggestion(doc, language);
+    }
+  );
 };
 
 export const deleteSuggestionService = async (id) => {
@@ -153,5 +164,6 @@ export const deleteSuggestionService = async (id) => {
   await Promise.all(translationSnapshot.docs.map((item) => item.ref.delete()));
   const formatted = await formatSuggestion(doc);
   await doc.ref.delete();
+  await invalidateLocalCache(["suggestions:", "suggestion-translations:"]);
   return formatted;
 };

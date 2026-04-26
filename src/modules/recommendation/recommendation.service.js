@@ -1,4 +1,5 @@
 import pool from "../../database/db.js";
+import { invalidateLocalCache, withLocalCache } from "../../utils/local-cache.js";
 
 export const createRuleService = async ({ conditionId, herbId, priority }) => {
   try {
@@ -9,6 +10,7 @@ export const createRuleService = async ({ conditionId, herbId, priority }) => {
       [conditionId, herbId, priority]
     );
 
+    await invalidateLocalCache(["recommendations:"]);
     return result.rows[0];
   } catch (error) {
     if (error.code === "23505") {
@@ -30,25 +32,27 @@ export const createRuleService = async ({ conditionId, herbId, priority }) => {
 };
 
 export const getByConditionService = async (conditionId) => {
-  const result = await pool.query(
-    `SELECT
-       h.id,
-       h.name,
-       h.scientific_name,
-       h.description,
-       h.preparation,
-       h.safety_warning,
-       h.status,
-       r.priority
-     FROM herbs h
-     JOIN recommendation_rules r ON h.id = r.herb_id
-     WHERE r.condition_id = $1
-       AND TRIM(LOWER(COALESCE(h.status, ''))) = 'published'
-     ORDER BY r.priority DESC NULLS LAST, h.name ASC`,
-    [conditionId]
-  );
+  return await withLocalCache(`recommendations:condition:${conditionId}`, async () => {
+    const result = await pool.query(
+      `SELECT
+         h.id,
+         h.name,
+         h.scientific_name,
+         h.description,
+         h.preparation,
+         h.safety_warning,
+         h.status,
+         r.priority
+       FROM herbs h
+       JOIN recommendation_rules r ON h.id = r.herb_id
+       WHERE r.condition_id = $1
+         AND TRIM(LOWER(COALESCE(h.status, ''))) = 'published'
+       ORDER BY r.priority DESC NULLS LAST, h.name ASC`,
+      [conditionId]
+    );
 
-  return result.rows;
+    return result.rows;
+  });
 };
 
 export const deleteRuleService = async (id) => {
@@ -59,5 +63,6 @@ export const deleteRuleService = async (id) => {
     [id]
   );
 
+  await invalidateLocalCache(["recommendations:"]);
   return result.rows[0];
 };
